@@ -1,24 +1,17 @@
-b 0 1
-if 0 goto 3
-if 1 goto 10
-accept
-write b
-move r
-if 0 goto 4
-if 1 goto 4
-move l
-if 0 goto 17
-reject
-write b
-move r
-if 0 goto 11
-if 1 goto 11
-move l
-if 1 goto 17
-reject
-write b
-move l
-if 0 goto 18
-if 1 goto 18
+0 1
+if 1 goto 3
 move r
 goto 0
+move r
+if 0 goto 6 
+goto 3
+write 1
+move r
+if 1 goto 10
+reject
+move r
+if 0 goto 13
+goto 10
+move l
+write 0
+accept
