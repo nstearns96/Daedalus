@@ -6,33 +6,33 @@
 #include <fstream>
 #include <sstream>
 
-struct head
+struct Head
 {
-	std::string State = "0";
-	int Position = 0;
+	std::string state = "0";
+	int position = 0;
 };
 
-struct table
+struct Table
 {
-	unsigned int NumStates;
-	std::vector<char> Write;
-	std::vector<char> Move;
-	std::vector<std::string> NextState;
+	unsigned int numStates;
+	std::vector<char> write;
+	std::vector<char> move;
+	std::vector<std::string> nextState;
 };
 
-struct turing_machine
+struct TuringMachine
 {
-	table Table;
-	head Head;
-	std::vector<char> Tape;
-	std::vector<char> Alphabet;
-	char BlankSymbol;
+	Table table;
+	Head head;
+	std::vector<char> tape;
+	std::vector<char> alphabet;
+	char blankSymbol;
 
 	//Does a single step of the turing machine
-	void Step();
+	void step();
 
 	//Load .tm file into turing machine
-	int Load(std::string FilePath);
+	int load(std::string filePath);
 };
 
 #endif

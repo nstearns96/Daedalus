@@ -1,6 +1,6 @@
 #include "TuringMachine.h"
 
-bool IsNum(std::string s)
+bool isNum(std::string s)
 {
 	for (int c = 0; c < s.length(); ++c)
 	{
@@ -13,97 +13,97 @@ bool IsNum(std::string s)
 	return true;
 }
 
-void turing_machine::Step()
+void TuringMachine::step()
 {
 
 	//Extend tape on side if out of bounds
-	if (Head.Position == -1)
+	if (head.position == -1)
 	{
-		Tape.insert(Tape.begin(), BlankSymbol);
-		++Head.Position;
+		tape.insert(tape.begin(), blankSymbol);
+		++head.position;
 	}
-	else if (Head.Position == (int)Tape.size()) Tape.push_back(BlankSymbol);
+	else if (head.position == (int)tape.size()) tape.push_back(blankSymbol);
 
-	int TableOffset = (Alphabet.size() + 1) * stoi(Head.State) +
-		((Tape[Head.Position]) == BlankSymbol ? 0 :
-		(1 + std::find(Alphabet.begin(), Alphabet.end(), Tape[Head.Position]) - Alphabet.begin()));
-	Tape[Head.Position] = Table.Write[TableOffset];
-	Head.Position += (Table.Move[TableOffset] == 'r') ? 1 : -1;
-	Head.State = Table.NextState[TableOffset];
+	int TableOffset = (alphabet.size() + 1) * stoi(head.state) +
+		((tape[head.position]) == blankSymbol ? 0 :
+		(1 + std::find(alphabet.begin(), alphabet.end(), tape[head.position]) - alphabet.begin()));
+	tape[head.position] = table.write[TableOffset];
+	head.position += (table.move[TableOffset] == 'r') ? 1 : -1;
+	head.state = table.nextState[TableOffset];
 }
 
-int turing_machine::Load(std::string FilePath)
+int TuringMachine::load(std::string filePath)
 {
-	std::ifstream FIn;
-	FIn.exceptions(std::ios::badbit);
-	FIn.open(FilePath);
-	std::string Line;
-	if (FIn)
+	std::ifstream file;
+	file.exceptions(std::ios::badbit);
+	file.open(filePath);
+	std::string line;
+	if (file)
 	{
 		//Check for valid header
-		getline(FIn, Line);
-		if (Line == "TM")
+		getline(file, line);
+		if (line == "TM")
 		{
 			//Read in alphabet
-			getline(FIn, Line);
-			BlankSymbol = Line[0];
-			for (int I = 2; I < Line.length(); I += 2)
+			getline(file, line);
+			blankSymbol = line[0];
+			for (int i = 2; i < line.length(); i += 2)
 			{
-				Alphabet.push_back(Line[I]);
+				alphabet.push_back(line[i]);
 			}
 
 			//Get number of states
-			getline(FIn, Line);
-			Table.NumStates = stoi(Line);
+			getline(file, line);
+			table.numStates = stoi(line);
 
 			//Get Table
-			getline(FIn, Line);
-			for (int I = 0; I < 2 * Table.NumStates * (Alphabet.size() + 1); I += 2)
+			getline(file, line);
+			for (int i = 0; i < 2 * table.numStates * (alphabet.size() + 1); i += 2)
 			{
-				if (Line[I] == BlankSymbol || std::find(Alphabet.begin(), Alphabet.end(), Line[I]) != Alphabet.end())
+				if (line[i] == blankSymbol || std::find(alphabet.begin(), alphabet.end(), line[i]) != alphabet.end())
 				{
-					Table.Write.push_back(Line[I]);
+					table.write.push_back(line[i]);
 				}
 				else
 				{
-					printf("Error: Character not in alphabet.\nRead: %s\n", Line[I]);
-					FIn.close();
+					printf("Error: Character not in alphabet.\nRead: %s\n", line[i]);
+					file.close();
 					return -1;
 				}
 			}
 
-			getline(FIn, Line);
-			for (int I = 0; I < 2 * Table.NumStates * (Alphabet.size() + 1); I += 2)
+			getline(file, line);
+			for (int i = 0; i < 2 * table.numStates * (alphabet.size() + 1); i += 2)
 			{
-				if (Line[I] == 'r' || Line[I] == 'l')
+				if (line[i] == 'r' || line[i] == 'l')
 				{
-					Table.Move.push_back(Line[I]);
+					table.move.push_back(line[i]);
 				}
 				else
 				{
-					printf("Error: Invalid move direction.\nRead: %s\n", Line[I]);
-					FIn.close();
+					printf("Error: Invalid move direction.\nRead: %s\n", line[i]);
+					file.close();
 					return -1;
 				}
 			}
 
-			for (int I = 0; I < Table.NumStates * (Alphabet.size() + 1); ++I)
+			for (int i = 0; i < table.numStates * (alphabet.size() + 1); ++i)
 			{
-				getline(FIn, Line, ' ');
-				if (Line == "a" || Line == "r")
+				getline(file, line, ' ');
+				if (line == "a" || line == "r")
 				{
-					Table.NextState.push_back(Line);
+					table.nextState.push_back(line);
 				}
 				else
 				{
-					if (IsNum(Line.c_str()) && 0 < stoi(Line) <= Table.NumStates)
+					if (isNum(line.c_str()) && 0 < stoi(line) <= table.numStates)
 					{
-						Table.NextState.push_back(Line);
+						table.nextState.push_back(line);
 					}
 					else
 					{
-						printf("Error: Invalid State Transition.\n Read %s\n", Line);
-						FIn.close();
+						printf("Error: Invalid State Transition.\n Read %s\n", line);
+						file.close();
 						return -1;
 					}
 				}
@@ -111,12 +111,12 @@ int turing_machine::Load(std::string FilePath)
 		}
 		else
 		{
-			printf("Error: Invalid Header Filed.\nExpected: \"TM\".\nRead: %s\n", Line.c_str());
-			FIn.close();
+			printf("Error: Invalid Header Filed.\nExpected: \"TM\".\nRead: %s\n", line.c_str());
+			file.close();
 			return -1;
 		}
 
-		FIn.close();
+		file.close();
 	}
 	else
 	{
