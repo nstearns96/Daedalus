@@ -1,5 +1,7 @@
 #include "TuringMachine.h"
 
+#include <iostream>
+
 bool isNum(std::string s)
 {
 	for (int c = 0; c < s.length(); ++c)
@@ -36,7 +38,9 @@ int TuringMachine::load(std::string filePath)
 {
 	std::ifstream file;
 	file.exceptions(std::ios::badbit);
-	file.open(filePath);
+
+	std::string inputFilePath = "tm/" + filePath + ".tm";
+	file.open(inputFilePath);
 	std::string line;
 	if (file)
 	{
@@ -66,7 +70,7 @@ int TuringMachine::load(std::string filePath)
 				}
 				else
 				{
-					printf("Error: Character not in alphabet.\nRead: %s\n", line[i]);
+					std::cout << "Error: Character not in alphabet.\nRead: " << line[i] << std::endl;
 					file.close();
 					return -1;
 				}
@@ -81,7 +85,7 @@ int TuringMachine::load(std::string filePath)
 				}
 				else
 				{
-					printf("Error: Invalid move direction.\nRead: %s\n", line[i]);
+					std::cout << "Error: Invalid move direction.\nRead: " << line[i] << std::endl;
 					file.close();
 					return -1;
 				}
@@ -102,7 +106,7 @@ int TuringMachine::load(std::string filePath)
 					}
 					else
 					{
-						printf("Error: Invalid State Transition.\n Read %s\n", line);
+						std::cout << "Error: Invalid State Transition.\n Read " << line << std::endl;
 						file.close();
 						return -1;
 					}
@@ -120,7 +124,7 @@ int TuringMachine::load(std::string filePath)
 	}
 	else
 	{
-		printf("Error: Failed to open file!");
+		std::cout << "Error: Failed to open file: " << filePath << ".txt" << std::endl;
 		return -1;
 	}
 

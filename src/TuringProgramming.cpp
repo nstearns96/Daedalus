@@ -2,20 +2,27 @@
 
 #include <iterator>
 #include <map>
-#include "TuringProgramming.h"
+#include <iostream>
 
+#include "TuringProgramming.h"
 
 //Converts input file to .wb1
 int lexWB1(std::string filePath)
 {
 	std::ifstream file;
 	file.exceptions(std::ios::badbit);
-	file.open(filePath);
+	
+	std::string inputFilePath = "daedalus/" + filePath + ".ddls";
+
+	file.open(inputFilePath);
 
 	if (file)
 	{
 		std::ofstream output;
-		output.open("output.wb1");
+
+		std::string outputFilePath = "wb1/" + filePath + ".wb1";
+
+		output.open(outputFilePath);
 		if (output)
 		{
 			//Write WB1 header
@@ -52,7 +59,9 @@ int lexWB1(std::string filePath)
 					}
 					else
 					{
-						printf(("Invalid label at " + std::to_string(lineNum + labelMap.size()+1)).c_str());
+						std::cout << "Invalid label at " << std::to_string(lineNum + labelMap.size() + 1) << std::endl;
+						output.close();
+						file.close();
 						return -1;
 					}
 				}
@@ -87,7 +96,9 @@ int lexWB1(std::string filePath)
 					}
 					else
 					{
-						printf(("Invalid label reference at " + std::to_string(lineNum)).c_str());
+						std::cout << "Invalid label reference at " << std::to_string(lineNum) << std::endl;
+						output.close();
+						file.close();
 						return -1;
 					}
 				}
@@ -117,7 +128,7 @@ int lexWB1(std::string filePath)
 	}
 	else
 	{
-		printf("Error: Failed to open file!");
+		std::cout << "Error: Failed to open file: " + filePath + ".txt" << std::endl;
 		return -1;
 	}
 
@@ -125,16 +136,22 @@ int lexWB1(std::string filePath)
 }
 
 //Converts .wb1 to .tm
-int wb1toTM(std::string FilePath)
+int wb1toTM(std::string filePath)
 {
 	std::ifstream file;
 	file.exceptions(std::ios::badbit);
-	file.open(FilePath);
+	
+	std::string inputFilePath = "wb1/" + filePath + ".wb1";
+
+	file.open(inputFilePath);
 
 	if (file)
 	{
 		std::ofstream output;
-		output.open("output.tm");
+
+		std::string outputFilePath = "tm/" + filePath + ".tm";
+
+		output.open(outputFilePath);
 		if (output)
 		{
 			//Check for valid header
@@ -391,7 +408,7 @@ int wb1toTM(std::string FilePath)
 			}
 			else
 			{
-				printf("Error: Invalid Header Filed.\nExpected: \"WB1\".\nRead: %s\n", line.c_str());
+				std::cout << "Invalid Header Found.\nExpected: \"WB1\".\nRead: \"" << line << "\"" << std::endl;
 				output.close();
 				file.close();
 				return -1;
@@ -404,28 +421,35 @@ int wb1toTM(std::string FilePath)
 	}
 	else
 	{
-		printf("Error: Failed to open file!");
+		std::cout << "Error: Failed to open file: " << filePath << ".wb1" << std::endl;
 		return -1;
 	}
 
 	return 0;
 }
 
-void main() 
+int main(int argc, char** args)
 {
 	TuringMachine machine;
-	machine.tape = { '1','1','0','1','1','1','1','1' };
-	if (lexWB1("input.txt") == 0)
+	machine.tape = { '1','1','0','1','1','0','1','1'};
+	if (argc < 2)
 	{
-		if (wb1toTM("output.wb1") == 0)
+		std::cout << "Please specify a file." << std::endl;
+	}
+	else
+	{
+		if (lexWB1(std::string(args[1])) == 0)
 		{
-			if (machine.load("output.tm") == 0)
+			if (wb1toTM(std::string(args[1])) == 0)
 			{
-				while (machine.head.state != "r" && machine.head.state != "a")
+				if (machine.load(std::string(args[1])) == 0)
 				{
-					machine.step();
+					while (machine.head.state != "r" && machine.head.state != "a")
+					{
+						machine.step();
+					}
+					std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 				}
-				printf("%s\n", machine.head.state == "r" ? "Rejected" : "Approved");
 			}
 		}
 	}
