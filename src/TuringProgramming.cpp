@@ -32,9 +32,9 @@ int lexWB1(std::string filePath)
 
 			//Read in alphabet
 			std::vector<char> alphabet;
-			for (int I = 0; I < line.length(); I += 2)
+			for (int i = 0; i < line.length(); i += 2)
 			{
-				alphabet.push_back(line[I]);
+				alphabet.push_back(line[i]);
 			}
 
 			//Write alphabet
@@ -128,7 +128,7 @@ int lexWB1(std::string filePath)
 	}
 	else
 	{
-		std::cout << "Error: Failed to open file: " + filePath + ".txt" << std::endl;
+		std::cout << "Error: Failed to open file: " + filePath + ".ddls" << std::endl;
 		return -1;
 	}
 
@@ -174,235 +174,133 @@ int wb1toTM(std::string filePath)
 				//Write alphabet
 				output << line + '\n';
 
-				//Maps .wb1 lines to .tm states
+				std::vector<std::string> goTos;
 				unsigned int lineNum = 0;
-				std::map<unsigned int, unsigned int> lineMap;
 
-				//TODO: Add functionality for string labels
-				//Queue for labels to be process
-				std::vector<unsigned int> labelQueue;
-				unsigned int labelIter = 0;
+				fpos_t codePosition = file.tellg();
+
+				while (getline(file, line))
+				{
+					std::istringstream lineStream(line);
+					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream},
+						std::istream_iterator<std::string>());
+
+					if (args[0] == "2")
+					{
+						goTos.push_back(args[2]);
+					}
+					else if (args[0] == "4")
+					{
+						goTos.push_back(args[1]);
+					}
+				}
+
+				file.clear();
+				file.seekg(codePosition);
+
+				//Maps .wb1 lines to .tm states
+				lineNum = 0;
+				std::map<std::string, unsigned int> lineMap;
+
+				lineMap["line0"] = 0;
 
 				//template of turing machine table to be filled out
-				unsigned int numStates = 0;
-				std::vector<char> write;
-				std::vector<char> move;
-				std::vector<std::string> nextState;
+				Table temp = { 0, {}, {}, {} };
+
+				//List of current instructions read in
+				std::vector<Instruction> optimizations;
 
 				while (getline(file, line))
 				{					
 					std::istringstream lineStream(line);
 					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, 
 						std::istream_iterator<std::string>());
-					if (args[0] == "0") // Accept
+
+					if (optimizations.size() != 0 && 
+						(!validOptimization(optimizations, args[0]) || 
+						(std::find(goTos.begin(), goTos.end(), std::to_string(lineNum)) != goTos.end())))
 					{
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
+						//Optimized states
+						Table optimizedStates = getOptimizedStates(optimizations, alphabet, temp.numStates);
 
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('r');
-						}
+						temp.numStates += optimizedStates.numStates;
+						temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
+						temp.move.insert(temp.move.end(),optimizedStates.move.begin(), optimizedStates.move.end());
+						temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
 
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back("a");
-						}
-						lineMap[lineNum++] = numStates;
-						++numStates;
+						lineMap["line" + std::to_string(lineNum)] = temp.numStates;
+						optimizations.clear();
 					}
-					else if (args[0] == "1") //Reject
+					switch (std::stoi(args[0]))
 					{
-						for (int c = 0; c < alphabet.size(); ++c)
+						case opAcc:
 						{
-							write.push_back(alphabet[c]);
+							optimizations.push_back({ std::stoi(args[0]), {} });
+							break;
 						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
+						case opRej:
 						{
-							move.push_back('r');
+							optimizations.push_back({ std::stoi(args[0]), {} });
+							break;
 						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
+						case opIfGoto:
 						{
-							nextState.push_back("r");
+							optimizations.push_back({ std::stoi(args[0]), {args[1],args[2]} });
+							break;
 						}
-						lineMap[lineNum++] = numStates;
-						++numStates;
+						case opWrite:
+						{
+							optimizations.push_back({ std::stoi(args[0]), {args[1]} });
+							break;
+						}
+						case opGoto:
+						{
+							optimizations.push_back({ std::stoi(args[0]), {args[1]} });
+							break;
+						}
+						case opMove:
+						{
+							optimizations.push_back({ std::stoi(args[0]), {args[1]} });
+							break;
+						}
 					}
-					else if (args[0] == "2") // If-goto
-					{
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('r');
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('l');
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('l');
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							if (c == stoi(args[1]))
-								nextState.push_back(std::to_string(numStates + 1));
-							else
-								nextState.push_back(std::to_string(numStates + 2));
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back("temp");
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back(std::to_string(numStates+3));
-						}
-						labelQueue.push_back(stoi(args[2]));
-						lineMap[lineNum++] = numStates;
-						numStates += 3;
-					}
-					else if (args[0] == "3") // write
-					{
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[stoi(args[1])]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('r');
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('l');
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back(std::to_string(numStates + 1));
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back(std::to_string(numStates + 2));
-						}
-						lineMap[lineNum++] = numStates;
-						numStates += 2;
-					}
-					else if (args[0] == "4") //goto
-					{
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('r');
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back('l');
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back(std::to_string(numStates + 1));
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back("temp");
-						}
-						labelQueue.push_back(stoi(args[1]));
-						lineMap[lineNum++] = numStates;
-						numStates += 2;
-					}
-					else if (args[0] == "5") // Move
-					{
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							write.push_back(alphabet[c]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							move.push_back(args[1][0]);
-						}
-
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState.push_back(std::to_string(numStates+1));
-						}
-						lineMap[lineNum++] = numStates;
-						++numStates;
-					}
+					++lineNum;
 				}
 
+				Table optimizedStates = getOptimizedStates(optimizations, alphabet, temp.numStates);
+
+				temp.numStates += optimizedStates.numStates;
+				temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
+				temp.move.insert(temp.move.end(), optimizedStates.move.begin(), optimizedStates.move.end());
+				temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
+
+				lineMap["line" + std::to_string(lineNum)] = temp.numStates;
+				optimizations.clear();
+	
 				//Replace labels with mapped states
-				while (!labelQueue.empty())
+				for (int i = 0; i < temp.nextState.size(); ++i)
 				{
-					if (nextState[labelIter] == "temp")
+					if (lineMap.find(temp.nextState[i]) != lineMap.end())
 					{
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							nextState[labelIter+c] = std::to_string(lineMap[labelQueue[0]]);
-						}
-						labelQueue.erase(labelQueue.begin());
+						temp.nextState[i] = std::to_string(lineMap[temp.nextState[i]]);
 					}
-					++labelIter;
 				}
+
 				//Write table template to .tm
-				output << numStates << "\n";
-				for (int c = 0; c < write.size(); ++c)
+				output << temp.numStates << "\n";
+				for (int c = 0; c < temp.write.size(); ++c)
 				{
-					output << write[c] << " ";
+					output << temp.write[c] << " ";
 				}
 				output << "\n";
-				for (int c = 0; c < move.size(); ++c)
+				for (int c = 0; c < temp.move.size(); ++c)
 				{
-					output << move[c] << " ";
+					output << temp.move[c] << " ";
 				}
 				output << "\n";
-				for (int c = 0; c < nextState.size(); ++c)
+				for (int c = 0; c < temp.nextState.size(); ++c)
 				{
-					output << nextState[c] << " ";
+					output << temp.nextState[c] << " ";
 				}
 				output << "\n";
 			}
@@ -431,10 +329,11 @@ int wb1toTM(std::string filePath)
 int main(int argc, char** args)
 {
 	TuringMachine machine;
-	machine.tape = { '1','1','0','1','1','0','1','1'};
+	machine.tape = { '1','1','0','1','1','1','1','1'};
+#ifndef _DEBUG
 	if (argc < 2)
 	{
-		std::cout << "Please specify a file." << std::endl;
+		//std::cout << "Please specify a file." << std::endl;
 	}
 	else
 	{
@@ -453,4 +352,20 @@ int main(int argc, char** args)
 			}
 		}
 	}
+#else
+	if (lexWB1("input") == 0)
+	{
+		if (wb1toTM("input") == 0)
+		{
+			if (machine.load("input") == 0)
+			{
+				while (machine.head.state != "r" && machine.head.state != "a")
+				{
+					machine.step();
+				}
+				std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
+			}
+		}
+	}
+#endif
 }

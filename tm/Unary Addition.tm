@@ -1,6 +1,6 @@
 TM
 0 1
-29
-0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 1 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 0 0 1 0 1 
-r r l l l l r r r r l l r r r r l l l l r r l l r r l l r r r r l l l l r r r r r r l l l l r r l l l l r r l l r r 
-2 1 6 6 3 3 4 4 5 5 0 0 7 7 8 9 12 12 10 10 11 11 6 6 13 13 14 14 15 15 17 16 19 19 18 18 r r 20 20 21 22 25 25 23 23 24 24 19 19 26 26 27 27 28 28 a a 
+13
+0 1 0 1 0 1 1 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 0 0 1 
+r r r r l l r r l l r r l l r r r r l l l l r r l l 
+1 1 2 0 3 r 4 4 a a r 6 r 7 8 8 9 7 10 r 11 11 12 12 a a 

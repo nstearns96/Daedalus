@@ -24,11 +24,12 @@ void TuringMachine::step()
 		tape.insert(tape.begin(), blankSymbol);
 		++head.position;
 	}
-	else if (head.position == (int)tape.size()) tape.push_back(blankSymbol);
+	else if (head.position == (int)tape.size())
+	{
+		tape.push_back(blankSymbol);
+	}
 
-	int TableOffset = (alphabet.size() + 1) * stoi(head.state) +
-		((tape[head.position]) == blankSymbol ? 0 :
-		(1 + std::find(alphabet.begin(), alphabet.end(), tape[head.position]) - alphabet.begin()));
+	int TableOffset = alphabet.size() * stoi(head.state) + (std::find(alphabet.begin(), alphabet.end(), tape[head.position]) - alphabet.begin());
 	tape[head.position] = table.write[TableOffset];
 	head.position += (table.move[TableOffset] == 'r') ? 1 : -1;
 	head.state = table.nextState[TableOffset];
@@ -51,7 +52,7 @@ int TuringMachine::load(std::string filePath)
 			//Read in alphabet
 			getline(file, line);
 			blankSymbol = line[0];
-			for (int i = 2; i < line.length(); i += 2)
+			for (int i = 0; i < line.length(); i += 2)
 			{
 				alphabet.push_back(line[i]);
 			}
@@ -62,9 +63,9 @@ int TuringMachine::load(std::string filePath)
 
 			//Get Table
 			getline(file, line);
-			for (int i = 0; i < 2 * table.numStates * (alphabet.size() + 1); i += 2)
+			for (int i = 0; i < 2 * table.numStates * alphabet.size(); i += 2)
 			{
-				if (line[i] == blankSymbol || std::find(alphabet.begin(), alphabet.end(), line[i]) != alphabet.end())
+				if (std::find(alphabet.begin(), alphabet.end(), line[i]) != alphabet.end())
 				{
 					table.write.push_back(line[i]);
 				}
@@ -77,7 +78,7 @@ int TuringMachine::load(std::string filePath)
 			}
 
 			getline(file, line);
-			for (int i = 0; i < 2 * table.numStates * (alphabet.size() + 1); i += 2)
+			for (int i = 0; i < 2 * table.numStates * alphabet.size(); i += 2)
 			{
 				if (line[i] == 'r' || line[i] == 'l')
 				{
@@ -91,7 +92,7 @@ int TuringMachine::load(std::string filePath)
 				}
 			}
 
-			for (int i = 0; i < table.numStates * (alphabet.size() + 1); ++i)
+			for (int i = 0; i < table.numStates * alphabet.size(); ++i)
 			{
 				getline(file, line, ' ');
 				if (line == "a" || line == "r")
@@ -106,7 +107,7 @@ int TuringMachine::load(std::string filePath)
 					}
 					else
 					{
-						std::cout << "Error: Invalid State Transition.\n Read " << line << std::endl;
+						std::cout << "Error: Invalid State Transition.\nRead " << line << std::endl;
 						file.close();
 						return -1;
 					}
