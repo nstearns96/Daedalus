@@ -1,5 +1,8 @@
 #include "Optimization.h"
 
+#include <queue>
+#include <set>
+
 Instruction::Instruction(int code, std::vector<std::string> args)
 {
 	instructionCode = code;
@@ -993,4 +996,177 @@ Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<
 	}
 
 	return result;
+}
+
+void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
+{
+	std::queue<int> stateQueue{{0}};
+	std::vector<int> completedStates;
+
+	//Acellerate states
+	while (!stateQueue.empty())
+	{
+		int currentState = stateQueue.front();
+		completedStates.push_back(currentState);
+		stateQueue.pop();
+
+		for (int currentChar = 0; currentChar < alphabet.size(); ++currentChar)
+		{
+			bool isCurrentStateIdenticalWrite = (table.write[alphabet.size()*currentState + currentChar] == alphabet[currentChar]);
+			if ((table.nextState[alphabet.size()*currentState + currentChar] != "r") && 
+				(table.nextState[alphabet.size()*currentState + currentChar] != "a"))
+			{
+				char moveDir = table.move[alphabet.size()*currentState + currentChar];
+				int nextState = std::stoi(table.nextState[alphabet.size()*currentState + currentChar]);
+				
+				bool isIdenticalWrite = true;
+				bool isMovingBack = true;
+				bool isNextStateSame = true;
+
+				std::string nextStateNextState = table.nextState[alphabet.size() * nextState];
+				for (int nextStateChar = 0; nextStateChar < alphabet.size(); ++nextStateChar)
+				{
+					if (table.write[alphabet.size()*nextState + nextStateChar] != alphabet[nextStateChar])
+					{
+						isIdenticalWrite = false;
+						break;
+					}
+					if (table.move[alphabet.size()*nextState + nextStateChar] != ((moveDir == 'r') ? 'l' : 'r'))
+					{
+						isMovingBack = false;
+						break;
+					}
+					if (table.nextState[alphabet.size()*nextState + nextStateChar] != nextStateNextState)
+					{
+						isNextStateSame = false;
+						break;
+					}
+				}
+
+				if (isIdenticalWrite && isMovingBack && isNextStateSame)
+				{
+					if (nextStateNextState == "r" || nextStateNextState == "a")
+					{
+						table.nextState[alphabet.size()*currentState + currentChar] = nextStateNextState;
+					}
+					else if(isCurrentStateIdenticalWrite)
+					{
+						table.write[alphabet.size()*currentState + currentChar] = table.write[alphabet.size()*std::stoi(nextStateNextState) + currentChar];
+						table.move[alphabet.size()*currentState + currentChar] = table.move[alphabet.size()*std::stoi(nextStateNextState) + currentChar];
+						table.nextState[alphabet.size()*currentState + currentChar] = table.nextState[alphabet.size()*std::stoi(nextStateNextState) + currentChar];
+					}
+				}
+
+				if (table.nextState[alphabet.size()*currentState + currentChar] != "a" && 
+					table.nextState[alphabet.size()*currentState + currentChar] != "r" && 
+					std::find(completedStates.begin(), completedStates.end(), std::stoi(table.nextState[alphabet.size()*currentState + currentChar])) == completedStates.end())
+				{
+					stateQueue.push(std::stoi(table.nextState[alphabet.size()*currentState + currentChar]));
+				}
+			}
+		}
+	}
+
+	//condense repeated states
+	std::vector<std::set<int>> identicalStates;
+	for (int s = 0; s < table.numStates; ++s)
+	{
+		for (int n = s + 1; n < table.numStates; ++n)
+		{
+			bool areStatesSame = true;
+			for (int c = 0; c < alphabet.size(); ++c)
+			{
+				if (table.write[alphabet.size()*s + c] != table.write[alphabet.size()*n + c] ||
+					table.move[alphabet.size()*s + c] != table.move[alphabet.size()*n + c] ||
+					table.nextState[alphabet.size()*s + c] != table.nextState[alphabet.size()*n + c])
+				{
+					areStatesSame = false;
+					break;
+				}
+			}
+
+			if (areStatesSame)
+			{
+				bool isStateEmplaced = false;
+				for (int v = 0; v < identicalStates.size(); ++v)
+				{
+					if (std::find(identicalStates[v].begin(), identicalStates[v].end(), s) != identicalStates[v].end())
+					{
+						identicalStates[v].insert(n);
+						isStateEmplaced = true;
+						break;
+					}
+				}
+				if (!isStateEmplaced)
+				{
+					identicalStates.push_back(std::set<int>{{s,n}});
+				}
+			}
+		}
+	}
+
+	//Change references to identical state with the lowest state number
+	for (int next = 0; next < table.nextState.size(); ++next)
+	{
+		if (table.nextState[next] != "r" && table.nextState[next] != "a")
+		{
+			for (int v = 0; v < identicalStates.size(); ++v)
+			{
+				if (identicalStates[v].find(std::stoi(table.nextState[next])) != identicalStates[v].end())
+				{
+					table.nextState[next] = std::to_string(*identicalStates[v].begin());
+				}
+			}
+		}
+	}
+
+	//Eliminate all unreferenced states
+	std::set<int> referencedStates;
+	std::set<int> removedStates;
+	std::vector<int> stateMapping;
+	for (int s = 0; s < table.numStates; ++s)
+	{
+		stateMapping.push_back(s);
+	}
+	int currentNumStates = table.numStates;
+	bool areAllStatesReferenced = false;
+	while (!areAllStatesReferenced)
+	{
+		areAllStatesReferenced = true;
+		for (int next = 0; next < table.nextState.size(); ++next)
+		{
+			if (table.nextState[next] != "r" && 
+				table.nextState[next] != "a")
+			{
+				referencedStates.insert(std::stoi(table.nextState[next]));
+			}
+		}
+		for (int s = 0; s < currentNumStates; ++s)
+		{
+			if (referencedStates.find(s) == referencedStates.end() && removedStates.find(s) == removedStates.end())
+			{
+				areAllStatesReferenced = false;
+				int mappedState = std::find(stateMapping.begin(), stateMapping.end(), s) - stateMapping.begin();
+				for (int c = 0; c < alphabet.size(); ++c)
+				{
+					table.write.erase(table.write.begin() + alphabet.size()*(mappedState));
+					table.move.erase(table.move.begin() + alphabet.size()*(mappedState));
+					table.nextState.erase(table.nextState.begin() + alphabet.size()*(mappedState));
+				}
+				removedStates.insert(s);
+				--table.numStates;
+				stateMapping.erase(std::find(stateMapping.begin(), stateMapping.end(), s));
+			}
+		}
+		referencedStates.clear();
+	}
+
+	//Remap states
+	for (int next = 0; next < table.nextState.size(); ++next)
+	{
+		if (table.nextState[next] != "r" && table.nextState[next] != "a")
+		{
+			table.nextState[next] = std::to_string(std::find(stateMapping.begin(), stateMapping.end(), std::stoi(table.nextState[next])) - stateMapping.begin());
+		}
+	}
 }

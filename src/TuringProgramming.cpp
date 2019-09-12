@@ -1,4 +1,4 @@
-//Version 0.4
+//Version 0.5
 
 #include <iterator>
 #include <map>
@@ -285,6 +285,8 @@ int wb1toTM(std::string filePath)
 						temp.nextState[i] = std::to_string(lineMap[temp.nextState[i]]);
 					}
 				}
+
+				lookAheadOptimize(temp, alphabet);
 
 				//Write table template to .tm
 				output << temp.numStates << "\n";
