@@ -208,7 +208,7 @@ int wb1toTM(std::string filePath)
 				Table temp = { 0, {}, {}, {} };
 
 				//List of current instructions read in
-				std::vector<Instruction> optimizations;
+				std::vector<Instruction> currentInstructions;
 
 				while (getline(file, line))
 				{					
@@ -216,12 +216,12 @@ int wb1toTM(std::string filePath)
 					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, 
 						std::istream_iterator<std::string>());
 
-					if (optimizations.size() != 0 && 
-						(!validOptimization(optimizations, args[0]) || 
+					if (currentInstructions.size() != 0 && 
+						(!validOptimization(currentInstructions, args[0]) || 
 						(std::find(goTos.begin(), goTos.end(), std::to_string(lineNum)) != goTos.end())))
 					{
 						//Optimized states
-						Table optimizedStates = getOptimizedStates(optimizations, alphabet, temp.numStates);
+						Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
 
 						temp.numStates += optimizedStates.numStates;
 						temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
@@ -229,45 +229,45 @@ int wb1toTM(std::string filePath)
 						temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
 
 						lineMap["line" + std::to_string(lineNum)] = temp.numStates;
-						optimizations.clear();
+						currentInstructions.clear();
 					}
 					switch (std::stoi(args[0]))
 					{
 						case opAcc:
 						{
-							optimizations.push_back({ std::stoi(args[0]), {} });
+							currentInstructions.push_back({ std::stoi(args[0]), {} });
 							break;
 						}
 						case opRej:
 						{
-							optimizations.push_back({ std::stoi(args[0]), {} });
+							currentInstructions.push_back({ std::stoi(args[0]), {} });
 							break;
 						}
 						case opIfGoto:
 						{
-							optimizations.push_back({ std::stoi(args[0]), {args[1],args[2]} });
+							currentInstructions.push_back({ std::stoi(args[0]), {args[1],args[2]} });
 							break;
 						}
 						case opWrite:
 						{
-							optimizations.push_back({ std::stoi(args[0]), {args[1]} });
+							currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
 							break;
 						}
 						case opGoto:
 						{
-							optimizations.push_back({ std::stoi(args[0]), {args[1]} });
+							currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
 							break;
 						}
 						case opMove:
 						{
-							optimizations.push_back({ std::stoi(args[0]), {args[1]} });
+							currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
 							break;
 						}
 					}
 					++lineNum;
 				}
 
-				Table optimizedStates = getOptimizedStates(optimizations, alphabet, temp.numStates);
+				Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
 
 				temp.numStates += optimizedStates.numStates;
 				temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
@@ -275,7 +275,7 @@ int wb1toTM(std::string filePath)
 				temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
 
 				lineMap["line" + std::to_string(lineNum)] = temp.numStates;
-				optimizations.clear();
+				currentInstructions.clear();
 	
 				//Replace labels with mapped states
 				for (int i = 0; i < temp.nextState.size(); ++i)
@@ -329,7 +329,7 @@ int wb1toTM(std::string filePath)
 int main(int argc, char** args)
 {
 	TuringMachine machine;
-	machine.tape = { '1','1','0','1','1','1','1','1'};
+	machine.tape = { '1','1','1','1','1','0','1','1'};
 #ifndef _DEBUG
 	if (argc < 2)
 	{
