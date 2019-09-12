@@ -1,6 +1,5 @@
 #include "Optimization.h"
 
-#include <queue>
 #include <set>
 
 Instruction::Instruction(int code, std::vector<std::string> args)
@@ -1000,15 +999,15 @@ Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<
 
 void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 {
-	std::queue<int> stateQueue{{0}};
+	std::vector<int> stateQueue{0};
 	std::vector<int> completedStates;
 
 	//Acellerate states
 	while (!stateQueue.empty())
 	{
-		int currentState = stateQueue.front();
+		int currentState = stateQueue[0];
 		completedStates.push_back(currentState);
-		stateQueue.pop();
+		stateQueue.erase(stateQueue.begin());
 
 		for (int currentChar = 0; currentChar < alphabet.size(); ++currentChar)
 		{
@@ -1059,9 +1058,10 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 
 				if (table.nextState[alphabet.size()*currentState + currentChar] != "a" && 
 					table.nextState[alphabet.size()*currentState + currentChar] != "r" && 
-					std::find(completedStates.begin(), completedStates.end(), std::stoi(table.nextState[alphabet.size()*currentState + currentChar])) == completedStates.end())
+					std::find(completedStates.begin(), completedStates.end(), std::stoi(table.nextState[alphabet.size()*currentState + currentChar])) == completedStates.end() &&
+					std::find(stateQueue.begin(), stateQueue.end(), std::stoi(table.nextState[alphabet.size()*currentState + currentChar])) == stateQueue.end())
 				{
-					stateQueue.push(std::stoi(table.nextState[alphabet.size()*currentState + currentChar]));
+					stateQueue.push_back(std::stoi(table.nextState[alphabet.size()*currentState + currentChar]));
 				}
 			}
 		}
