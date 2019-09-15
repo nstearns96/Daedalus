@@ -293,7 +293,7 @@ Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<
 							}
 							else
 							{
-								switch (ins[ifGotoEnd].getCode())
+								switch (ins[ifGotoEnd + 1].getCode())
 								{
 									case opAcc:
 									{
@@ -1048,11 +1048,14 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 					{
 						table.nextState[alphabet.size()*currentState + currentChar] = nextStateNextState;
 					}
-					else if(isCurrentStateIdenticalWrite)
+					else// if(isCurrentStateIdenticalWrite)
 					{
-						table.write[alphabet.size()*currentState + currentChar] = table.write[alphabet.size()*std::stoi(nextStateNextState) + currentChar];
-						table.move[alphabet.size()*currentState + currentChar] = table.move[alphabet.size()*std::stoi(nextStateNextState) + currentChar];
-						table.nextState[alphabet.size()*currentState + currentChar] = table.nextState[alphabet.size()*std::stoi(nextStateNextState) + currentChar];
+						int stateWriteAlphabetOffset = std::find(alphabet.begin(), alphabet.end(), table.write[alphabet.size()*currentState + currentChar]) - alphabet.begin();
+						table.write[alphabet.size()*currentState + currentChar] = table.write[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset];
+						table.move[alphabet.size()*currentState + currentChar] = table.move[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset];
+						table.nextState[alphabet.size()*currentState + currentChar] = table.nextState[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset];
+						currentChar = -1;
+						continue;
 					}
 				}
 
@@ -1132,6 +1135,7 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 	bool areAllStatesReferenced = false;
 	while (!areAllStatesReferenced)
 	{
+		referencedStates.insert(0);
 		areAllStatesReferenced = true;
 		for (int next = 0; next < table.nextState.size(); ++next)
 		{
@@ -1141,7 +1145,7 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 				referencedStates.insert(std::stoi(table.nextState[next]));
 			}
 		}
-		for (int s = 0; s < currentNumStates; ++s)
+		for (int s = 1; s < currentNumStates; ++s)
 		{
 			if (referencedStates.find(s) == referencedStates.end() && removedStates.find(s) == removedStates.end())
 			{

@@ -136,7 +136,7 @@ int lexWB1(std::string filePath)
 }
 
 //Converts .wb1 to .tm
-int wb1toTM(std::string filePath)
+int wb1toTM(std::string filePath, int optimizationLevel)
 {
 	std::ifstream file;
 	file.exceptions(std::ios::badbit);
@@ -332,34 +332,17 @@ int main(int argc, char** args)
 {
 	TuringMachine machine;
 	machine.tape = { '1','1','1','1','1','0','1','1'};
-#ifndef _DEBUG
-	if (argc < 2)
-	{
-		//std::cout << "Please specify a file." << std::endl;
-	}
-	else
-	{
-		if (lexWB1(std::string(args[1])) == 0)
-		{
-			if (wb1toTM(std::string(args[1])) == 0)
-			{
-				if (machine.load(std::string(args[1])) == 0)
-				{
-					while (machine.head.state != "r" && machine.head.state != "a")
-					{
-						machine.step();
-					}
-					std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
-				}
-			}
-		}
-	}
+
+#ifdef _DEBUG
+	std::string filePath = "input";
 #else
-	if (lexWB1("input") == 0)
+	std::string filePath{ args[1] };
+#endif
+	if (lexWB1(filePath) == 0)
 	{
-		if (wb1toTM("input") == 0)
+		if (wb1toTM(filePath, 2) == 0)
 		{
-			if (machine.load("input") == 0)
+			if (machine.load(filePath) == 0)
 			{
 				while (machine.head.state != "r" && machine.head.state != "a")
 				{
@@ -369,5 +352,4 @@ int main(int argc, char** args)
 			}
 		}
 	}
-#endif
 }
