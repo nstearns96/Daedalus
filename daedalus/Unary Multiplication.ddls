@@ -1,0 +1,69 @@
+0 1
+start:
+	if 1 goto decrement_arg1_from_left
+	move r
+	goto start
+	decrement_arg1_from_left:
+		write 0
+		move r
+		seek_arg2_begin:
+			if 0 goto found_arg2
+			move r
+			goto seek_arg2_begin
+		found_arg2:
+			move r
+			if 1 goto seek_arg2_end_to_mark
+			reject
+		seek_arg2_end_to_mark:
+			if 0 goto mark_end_arg2
+			move r
+			goto seek_arg2_end_to_mark
+		mark_end_arg2:
+			move l
+			write 0
+			move r
+			seek_result_end_from_arg2:
+				if 0 goto seek_result_end
+				move r
+				goto seek_result_end_from_arg2
+			seek_result_end:
+				move r
+				if 1 goto seek_result_end
+				write 1
+				move l
+				seek_result_begin:
+					if 0 goto advance_zero_arg2
+					move l
+					goto seek_result_begin
+				advance_zero_arg2:
+					move l
+					seek_zero_arg2:
+						if 0 goto found_zero_arg2
+						move l
+						goto seek_zero_arg2
+					found_zero_arg2:
+						write 1
+						move l
+						if 0 goto seek_arg1_begin
+						write 0
+						move r
+						goto seek_result_end_from_arg2
+					seek_arg1_begin:
+						move l
+						if 0 goto erase_arg2
+						move l
+						seek_arg1_begin_loop:
+							if 0 goto start
+							move l
+							goto seek_arg1_begin_loop
+						erase_arg2:
+							move r
+							move r
+							erase_arg2_loop:
+								if 0 goto return_result
+								write 0
+								move r
+								goto erase_arg2_loop
+							return_result:
+								move r
+								accept

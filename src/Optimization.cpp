@@ -427,7 +427,7 @@ Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<
 												{
 													result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
 													result.move.push_back(ins[ifGotoEnd + 1].getArgs()[0][0]);
-													result.nextState.push_back(std::to_string(numStates + ifGotoEnd));
+													result.nextState.push_back(std::to_string(numStates + 1 + ifGotoEnd));
 												}
 												else
 												{
@@ -1147,7 +1147,7 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 		}
 		for (int s = 1; s < currentNumStates; ++s)
 		{
-			if (referencedStates.find(s) == referencedStates.end() && removedStates.find(s) == removedStates.end())
+			if (referencedStates.find(s) == referencedStates.end() && (removedStates.find(s) == removedStates.end()))
 			{
 				areAllStatesReferenced = false;
 				int mappedState = std::find(stateMapping.begin(), stateMapping.end(), s) - stateMapping.begin();

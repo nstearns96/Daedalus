@@ -286,7 +286,10 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 					}
 				}
 
-				lookAheadOptimize(temp, alphabet);
+				if (optimizationLevel == 2)
+				{
+					lookAheadOptimize(temp, alphabet);
+				}
 
 				//Write table template to .tm
 				output << temp.numStates << "\n";
@@ -333,11 +336,7 @@ int main(int argc, char** args)
 	TuringMachine machine;
 	machine.tape = { '1','1','1','1','1','0','1','1'};
 
-#ifdef _DEBUG
-	std::string filePath = "input";
-#else
 	std::string filePath{ args[1] };
-#endif
 	if (lexWB1(filePath) == 0)
 	{
 		if (wb1toTM(filePath, 2) == 0)
