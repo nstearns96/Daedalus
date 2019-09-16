@@ -33,6 +33,10 @@ struct TuringMachine
 
 	//Load .tm file into turing machine
 	int load(std::string filePath);
+
+	int loadTape(std::string filePath);
+
+	void printTape();
 };
 
 #endif

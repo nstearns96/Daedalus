@@ -1,10 +1,17 @@
-//Version 0.5
+//Version 0.6
 
 #include <iterator>
 #include <map>
 #include <iostream>
+#include <algorithm>
 
 #include "TuringProgramming.h"
+
+bool is_number(const std::string& s)
+{
+	return !s.empty() && std::find_if(s.begin(),
+		s.end(), [](char c) { return !isdigit(c); }) == s.end();
+}
 
 //Converts input file to .wb1
 int lexWB1(std::string filePath)
@@ -250,8 +257,8 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 						}
 						case opWrite:
 						{
-							currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
-							break;
+						currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
+						break;
 						}
 						case opGoto:
 						{
@@ -276,7 +283,7 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 
 				lineMap["line" + std::to_string(lineNum)] = temp.numStates;
 				currentInstructions.clear();
-	
+
 				//Replace labels with mapped states
 				for (int i = 0; i < temp.nextState.size(); ++i)
 				{
@@ -311,10 +318,10 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 			}
 			else
 			{
-				std::cout << "Invalid Header Found.\nExpected: \"WB1\".\nRead: \"" << line << "\"" << std::endl;
-				output.close();
-				file.close();
-				return -1;
+			std::cout << "Invalid Header Found.\nExpected: \"WB1\".\nRead: \"" << line << "\"" << std::endl;
+			output.close();
+			file.close();
+			return -1;
 			}
 
 			output.close();
@@ -324,31 +331,219 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 	}
 	else
 	{
-		std::cout << "Error: Failed to open file: " << filePath << ".wb1" << std::endl;
-		return -1;
+	std::cout << "Error: Failed to open file: " << filePath << ".wb1" << std::endl;
+	return -1;
 	}
 
 	return 0;
 }
 
+//TODO: Refactor
+bool interpretCommandLineArgs(int argc, char** args, TuringMachine &machine)
+{
+	if (argc >= 2)
+	{
+		std::string command{ args[1] };
+		if (command == "run")
+		{
+			if (argc >= 4)
+			{
+				if (args[2][0] == '-' || args[3][0] == '-')
+				{
+					std::cout << "Error: Invalid path variable" << (args[2][0] == '-' ? args[3] : args[2]) << std::endl;
+					return -1;
+				}
+
+				if (machine.load(args[2]) == 0)
+				{
+					if (machine.loadTape(args[3]) == 0)
+					{
+						if (argc >= 5)
+						{
+							if (argc == 6)
+							{
+								if (args[4][0] == '-' || args[5][0] == '-')
+								{
+									if (std::string{ args[4] } == "-S" || std::string{ args[5] } == "-S")
+									{
+										std::string stepLimitString = std::string{ args[4] } == "-S" ? std::string{ args[5] } : std::string{ args[4] };
+										if (is_number(stepLimitString.substr(1, stepLimitString.size() - 1)))
+										{
+											unsigned int steps = 0;
+											unsigned int stepLimit = std::stoi(stepLimitString.substr(1, stepLimitString.size() - 1));
+											while (steps < stepLimit && (machine.head.state != "r" && machine.head.state != "a"))
+											{
+												++steps;
+												machine.step();
+												machine.printTape();
+											}
+
+											if (machine.head.state != "r" && machine.head.state != "a")
+											{
+												std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
+											}
+										}
+										else
+										{
+										std::cout << "Error: Invalid step limit flag " << stepLimitString << std::endl;
+										}
+									}
+									else
+									{
+									std::cout << "Error: Invalid flag " << (std::string{ args[4] } == "-S" ? std::string{ args[4] } : std::string{ args[5] }) << std::endl;
+									}
+								}
+							}
+							else if (argc == 5)
+							{
+							std::string flagString = std::string{ args[4] };
+							if (flagString == "-S")
+							{
+								while (machine.head.state != "r" && machine.head.state != "a")
+								{
+									machine.step();
+									machine.printTape();
+								}
+
+								if (machine.head.state != "r" && machine.head.state != "a")
+								{
+									std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
+								}
+							}
+							else if (is_number(flagString.substr(1, flagString.size() - 1)))
+							{
+								unsigned int steps = 0;
+								unsigned int stepLimit = std::stoi(flagString.substr(1, flagString.size() - 1));
+								while (steps < stepLimit && (machine.head.state != "r" && machine.head.state != "a"))
+								{
+									++steps;
+									machine.step();
+								}
+
+								if (machine.head.state != "r" && machine.head.state != "a")
+								{
+									std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
+								}
+							}
+							else
+							{
+								std::cout << "Invalid flag " << flagString << std::endl;
+							}
+							}
+							else
+							{
+							std::cout << "Too many arguments!" << std::endl;
+							}
+						}
+					}
+					else
+					{
+					return -1;
+					}
+				}
+				else
+				{
+				return -1;
+				}
+			}
+			else
+			{
+			if (argc == 2)
+			{
+				std::cout << "Error: Please specify a source path for the Turing Machine" << std::endl;
+				return -1;
+			}
+			else if (argc == 3)
+			{
+				std::cout << "Error: Please specify a source path for the inital tape" << std::endl;
+				return -1;
+			}
+			}
+		}
+		else if (command == "compile")
+		{
+			if (argc >= 5)
+			{
+				std::string sourceFileTypeString{ args[2] };
+				std::string outputFileTypeString{ args[3] };
+				if ((sourceFileTypeString == "ddls" || sourceFileTypeString == "wb1") && (outputFileTypeString == "wb1" || outputFileTypeString == "tm") &&
+					(sourceFileTypeString != outputFileTypeString))
+				{
+					if (sourceFileTypeString == "ddls")
+					{
+						lexWB1(args[4]);
+						if (outputFileTypeString == "tm")
+						{
+							int optimizationLevel = 0;
+							if (argc == 6)
+							{
+								std::string flagString{ args[5] };
+								if ((flagString == "-O0" || flagString == "-O1" || flagString == "-O2"))
+								{
+									optimizationLevel = std::stoi(flagString.substr(2, 1));
+								}
+								else
+								{
+									std::cout << "Error: Invalid flag " << flagString << std::endl;
+								}
+								wb1toTM(args[4], optimizationLevel);
+							}
+						}
+					}
+					else if (sourceFileTypeString == "wb1")
+					{
+						int optimizationLevel = 0;
+						if (argc == 6)
+						{
+							std::string flagString{ args[5] };
+							if ((flagString == "-O0" || flagString == "-O1" || flagString == "-O2"))
+							{
+								optimizationLevel = std::stoi(flagString.substr(2, 1));
+							}
+							else
+							{
+								std::cout << "Error: Invalid flag " << flagString << std::endl;
+							}
+							wb1toTM(args[4], optimizationLevel);
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			std::cout << "Error: Invalid Command: " << command << std::endl;
+		}
+	}
+	else
+	{
+		//TODO: Make this print all available commands w/ syntax
+		std::cout << "Error: Please specify a command" << std::endl;
+	}
+}
+
 int main(int argc, char** args)
 {
 	TuringMachine machine;
-	machine.tape = { '1','1','1','1','1','0','1','1'};
-
+	interpretCommandLineArgs(argc, args, machine);
+/*
 	std::string filePath{ args[1] };
+
 	if (lexWB1(filePath) == 0)
 	{
 		if (wb1toTM(filePath, 2) == 0)
 		{
 			if (machine.load(filePath) == 0)
 			{
-				while (machine.head.state != "r" && machine.head.state != "a")
+				if (machine.loadTape("initTape") == 0)
 				{
-					machine.step();
+					while (machine.head.state != "r" && machine.head.state != "a")
+					{
+						machine.step();
+					}
+					std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 				}
-				std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 			}
 		}
-	}
+	}*/
 }

@@ -17,6 +17,10 @@ bool isNum(std::string s)
 
 void TuringMachine::step()
 {
+	int TableOffset = alphabet.size() * stoi(head.state) + (std::find(alphabet.begin(), alphabet.end(), tape[head.position]) - alphabet.begin());
+	tape[head.position] = table.write[TableOffset];
+	head.position += (table.move[TableOffset] == 'r') ? 1 : -1;
+	head.state = table.nextState[TableOffset];
 
 	//Extend tape on side if out of bounds
 	if (head.position == -1)
@@ -28,11 +32,6 @@ void TuringMachine::step()
 	{
 		tape.push_back(blankSymbol);
 	}
-
-	int TableOffset = alphabet.size() * stoi(head.state) + (std::find(alphabet.begin(), alphabet.end(), tape[head.position]) - alphabet.begin());
-	tape[head.position] = table.write[TableOffset];
-	head.position += (table.move[TableOffset] == 'r') ? 1 : -1;
-	head.state = table.nextState[TableOffset];
 }
 
 int TuringMachine::load(std::string filePath)
@@ -130,4 +129,47 @@ int TuringMachine::load(std::string filePath)
 	}
 
 	return 0;
+}
+
+int TuringMachine::loadTape(std::string filePath)
+{
+	std::ifstream fin;
+	fin.exceptions(std::ios::badbit);
+
+	std::string inputFilePath = "tape/" + filePath + ".txt";
+	fin.open(inputFilePath);
+	std::string line;
+	if (fin)
+	{
+		std::getline(fin, line);
+		for (int c = 0; c < line.size(); c += 2)
+		{
+			//TODO: Symbol check on read in?
+			tape.push_back(line[c]);
+		}
+		fin.close();
+		return 0;
+	}
+	else
+	{
+		std::cout << "Error: Failed to open file: " << filePath << ".txt" << std::endl;
+		return -1;
+	}
+}
+
+void TuringMachine::printTape()
+{
+	std::string tapeString = "";
+	for (int s = 0; s < tape.size(); ++s)
+	{
+		tapeString += (std::string{ tape[s] } + " "); 
+	}
+	std::string headString = "";
+	for (int s = 0; s < head.position; ++s)
+	{
+		headString += "  ";
+	}
+	headString += "^";
+
+	std::cout << tapeString << '\n' << headString << std::endl;
 }
