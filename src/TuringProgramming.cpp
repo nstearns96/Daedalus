@@ -214,32 +214,34 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 				//template of turing machine table to be filled out
 				Table temp = { 0, {}, {}, {} };
 
-				//List of current instructions read in
-				std::vector<Instruction> currentInstructions;
+				if (optimizationLevel > 0)
+				{
+					//List of current instructions read in
+					std::vector<Instruction> currentInstructions;
 
-				while (getline(file, line))
-				{					
-					std::istringstream lineStream(line);
-					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, 
-						std::istream_iterator<std::string>());
-
-					if (currentInstructions.size() != 0 && 
-						(!validOptimization(currentInstructions, args[0]) || 
-						(std::find(goTos.begin(), goTos.end(), std::to_string(lineNum)) != goTos.end())))
+					while (getline(file, line))
 					{
-						//Optimized states
-						Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
+						std::istringstream lineStream(line);
+						std::vector<std::string> args(std::istream_iterator<std::string>{lineStream},
+							std::istream_iterator<std::string>());
 
-						temp.numStates += optimizedStates.numStates;
-						temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
-						temp.move.insert(temp.move.end(),optimizedStates.move.begin(), optimizedStates.move.end());
-						temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
+						if (currentInstructions.size() != 0 &&
+							(!validOptimization(currentInstructions, args[0]) ||
+							(std::find(goTos.begin(), goTos.end(), std::to_string(lineNum)) != goTos.end())))
+						{
+							//Optimized states
+							Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
 
-						lineMap["line" + std::to_string(lineNum)] = temp.numStates;
-						currentInstructions.clear();
-					}
-					switch (std::stoi(args[0]))
-					{
+							temp.numStates += optimizedStates.numStates;
+							temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
+							temp.move.insert(temp.move.end(), optimizedStates.move.begin(), optimizedStates.move.end());
+							temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
+
+							lineMap["line" + std::to_string(lineNum)] = temp.numStates;
+							currentInstructions.clear();
+						}
+						switch (std::stoi(args[0]))
+						{
 						case opAcc:
 						{
 							currentInstructions.push_back({ std::stoi(args[0]), {} });
@@ -257,8 +259,8 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 						}
 						case opWrite:
 						{
-						currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
-						break;
+							currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
+							break;
 						}
 						case opGoto:
 						{
@@ -270,32 +272,168 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 							currentInstructions.push_back({ std::stoi(args[0]), {args[1]} });
 							break;
 						}
+						}
+						++lineNum;
 					}
-					++lineNum;
-				}
 
-				Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
+					Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
 
-				temp.numStates += optimizedStates.numStates;
-				temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
-				temp.move.insert(temp.move.end(), optimizedStates.move.begin(), optimizedStates.move.end());
-				temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
-
-				lineMap["line" + std::to_string(lineNum)] = temp.numStates;
-				currentInstructions.clear();
-
-				//Replace labels with mapped states
-				for (int i = 0; i < temp.nextState.size(); ++i)
-				{
-					if (lineMap.find(temp.nextState[i]) != lineMap.end())
+					for (int c = 0; c < optimizedStates.nextState.size(); ++c)
 					{
-						temp.nextState[i] = std::to_string(lineMap[temp.nextState[i]]);
+						if (optimizedStates.nextState[c] != "r" && optimizedStates.nextState[c] != "a")
+						{
+							if (std::stoi(optimizedStates.nextState[c]) >= optimizedStates.numStates)
+							{
+								optimizedStates.nextState[c] = "a";
+							}
+						}
+					}
+
+					temp.numStates += optimizedStates.numStates;
+					temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
+					temp.move.insert(temp.move.end(), optimizedStates.move.begin(), optimizedStates.move.end());
+					temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
+
+					lineMap["line" + std::to_string(lineNum)] = temp.numStates;
+					currentInstructions.clear();
+
+					//Replace labels with mapped states
+					for (int i = 0; i < temp.nextState.size(); ++i)
+					{
+						if (lineMap.find(temp.nextState[i]) != lineMap.end())
+						{
+							temp.nextState[i] = std::to_string(lineMap[temp.nextState[i]]);
+						}
+					}
+
+					if (optimizationLevel == 2)
+					{
+						lookAheadOptimize(temp, alphabet);
 					}
 				}
-
-				if (optimizationLevel == 2)
+				else
 				{
-					lookAheadOptimize(temp, alphabet);
+
+					while (getline(file, line))
+					{
+						std::istringstream lineStream(line);
+						std::vector<std::string> args(std::istream_iterator<std::string>{lineStream},
+							std::istream_iterator<std::string>());
+
+						switch (std::stoi(args[0]))
+						{
+							case opAcc:
+							{
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('r');
+									temp.nextState.push_back(std::to_string(temp.numStates + 1));
+								}
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('l');
+									temp.nextState.push_back("a");
+								}
+								temp.numStates += 2;
+								break;
+							}
+							case opRej:
+							{
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('r');
+									temp.nextState.push_back(std::to_string(temp.numStates + 1));
+								}
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('l');
+									temp.nextState.push_back("r");
+								}
+								temp.numStates += 2;
+								break;
+							}
+							case opIfGoto:
+							{
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('r');
+									temp.nextState.push_back(std::to_string(temp.numStates + 1));
+								}
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('l');
+									if (args[1][0] == alphabet[c])
+									{
+										temp.nextState.push_back("line" + args[2]);
+									}
+									temp.nextState.push_back(std::to_string(temp.numStates + 2));
+								}
+								temp.numStates += 2;
+								break;
+							}
+							case opWrite:
+							{
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(args[1][0]);
+									temp.move.push_back('r');
+									temp.nextState.push_back(std::to_string(temp.numStates + 1));
+								}
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('l');
+									temp.nextState.push_back(std::to_string(temp.numStates + 2));
+								}
+								temp.numStates += 2;
+								break;
+							}
+							case opGoto:
+							{
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('r');
+									temp.nextState.push_back(std::to_string(temp.numStates + 1));
+								}
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('l');
+									temp.nextState.push_back("line" + args[1]);
+								}
+								temp.numStates += 2;
+								break;
+							}
+							case opMove:
+							{
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('r');
+									temp.nextState.push_back(std::to_string(temp.numStates + 1));
+								}
+								temp.numStates += 1;
+								break;
+							}
+						}
+						lineMap["line" + std::to_string(lineNum + 1)] = temp.numStates;
+						++lineNum;
+					}
+
+					for (int i = 0; i < temp.nextState.size(); ++i)
+					{
+						if (lineMap.find(temp.nextState[i]) != lineMap.end())
+						{
+							temp.nextState[i] = std::to_string(lineMap[temp.nextState[i]]);
+						}
+					}
 				}
 
 				//Write table template to .tm
@@ -339,7 +477,7 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 }
 
 //TODO: Refactor
-bool interpretCommandLineArgs(int argc, char** args, TuringMachine &machine)
+int interpretCommandLineArgs(int argc, char** args)
 {
 	if (argc >= 2)
 	{
@@ -353,6 +491,8 @@ bool interpretCommandLineArgs(int argc, char** args, TuringMachine &machine)
 					std::cout << "Error: Invalid path variable" << (args[2][0] == '-' ? args[3] : args[2]) << std::endl;
 					return -1;
 				}
+
+				TuringMachine machine;
 
 				if (machine.load(args[2]) == 0)
 				{
@@ -369,14 +509,8 @@ bool interpretCommandLineArgs(int argc, char** args, TuringMachine &machine)
 										std::string stepLimitString = std::string{ args[4] } == "-S" ? std::string{ args[5] } : std::string{ args[4] };
 										if (is_number(stepLimitString.substr(1, stepLimitString.size() - 1)))
 										{
-											unsigned int steps = 0;
 											unsigned int stepLimit = std::stoi(stepLimitString.substr(1, stepLimitString.size() - 1));
-											while (steps < stepLimit && (machine.head.state != "r" && machine.head.state != "a"))
-											{
-												++steps;
-												machine.step();
-												machine.printTape();
-											}
+											machine.run(true, stepLimit, true);
 
 											if (machine.head.state != "r" && machine.head.state != "a")
 											{
@@ -385,79 +519,70 @@ bool interpretCommandLineArgs(int argc, char** args, TuringMachine &machine)
 										}
 										else
 										{
-										std::cout << "Error: Invalid step limit flag " << stepLimitString << std::endl;
+											std::cout << "Error: Invalid step limit flag " << stepLimitString << std::endl;
 										}
 									}
 									else
 									{
-									std::cout << "Error: Invalid flag " << (std::string{ args[4] } == "-S" ? std::string{ args[4] } : std::string{ args[5] }) << std::endl;
+										std::cout << "Error: Invalid flag " << (std::string{ args[4] } == "-S" ? std::string{ args[4] } : std::string{ args[5] }) << std::endl;
 									}
 								}
 							}
 							else if (argc == 5)
 							{
-							std::string flagString = std::string{ args[4] };
-							if (flagString == "-S")
-							{
-								while (machine.head.state != "r" && machine.head.state != "a")
+								std::string flagString = std::string{ args[4] };
+								if (flagString == "-S")
 								{
-									machine.step();
-									machine.printTape();
+									machine.run(false, 0, true);
+										
+									if (machine.head.state != "r" && machine.head.state != "a")
+									{
+										std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
+									}
 								}
-
-								if (machine.head.state != "r" && machine.head.state != "a")
+								else if (is_number(flagString.substr(1, flagString.size() - 1)))
 								{
-									std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
+									unsigned int stepLimit = std::stoi(flagString.substr(1, flagString.size() - 1));
+									machine.run(true, stepLimit, false);
+										
+									if (machine.head.state != "r" && machine.head.state != "a")
+									{
+										std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
+									}
 								}
-							}
-							else if (is_number(flagString.substr(1, flagString.size() - 1)))
-							{
-								unsigned int steps = 0;
-								unsigned int stepLimit = std::stoi(flagString.substr(1, flagString.size() - 1));
-								while (steps < stepLimit && (machine.head.state != "r" && machine.head.state != "a"))
+								else
 								{
-									++steps;
-									machine.step();
+									std::cout << "Invalid flag " << flagString << std::endl;
 								}
-
-								if (machine.head.state != "r" && machine.head.state != "a")
-								{
-									std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 								}
-							}
 							else
 							{
-								std::cout << "Invalid flag " << flagString << std::endl;
-							}
-							}
-							else
-							{
-							std::cout << "Too many arguments!" << std::endl;
+								std::cout << "Too many arguments!" << std::endl;
 							}
 						}
-					}
+					}	
 					else
-					{
-					return -1;
+					{	
+						return -1;
 					}
 				}
 				else
 				{
-				return -1;
+					return -1;
 				}
 			}
 			else
 			{
-			if (argc == 2)
-			{
-				std::cout << "Error: Please specify a source path for the Turing Machine" << std::endl;
-				return -1;
-			}
-			else if (argc == 3)
-			{
-				std::cout << "Error: Please specify a source path for the inital tape" << std::endl;
-				return -1;
-			}
+				if (argc == 2)
+				{
+					std::cout << "Error: Please specify a source path for the Turing Machine" << std::endl;
+					return -1;
+				}
+				else if (argc == 3)
+				{
+					std::cout << "Error: Please specify a source path for the inital tape" << std::endl;
+					return -1;
+				}
 			}
 		}
 		else if (command == "compile")
@@ -485,12 +610,13 @@ bool interpretCommandLineArgs(int argc, char** args, TuringMachine &machine)
 								else
 								{
 									std::cout << "Error: Invalid flag " << flagString << std::endl;
+									return -1;
 								}
 								wb1toTM(args[4], optimizationLevel);
 							}
 						}
 					}
-					else if (sourceFileTypeString == "wb1")
+					else
 					{
 						int optimizationLevel = 0;
 						if (argc == 6)
@@ -503,29 +629,37 @@ bool interpretCommandLineArgs(int argc, char** args, TuringMachine &machine)
 							else
 							{
 								std::cout << "Error: Invalid flag " << flagString << std::endl;
+								return -1;
 							}
 							wb1toTM(args[4], optimizationLevel);
 						}
 					}
+				}
+				else
+				{
+					std::cout << "Error: Invalid compile instruction" << std::endl;
 				}
 			}
 		}
 		else
 		{
 			std::cout << "Error: Invalid Command: " << command << std::endl;
+			return -1;
 		}
 	}
 	else
 	{
 		//TODO: Make this print all available commands w/ syntax
 		std::cout << "Error: Please specify a command" << std::endl;
+		return -1;
 	}
+
+	return 0;
 }
 
 int main(int argc, char** args)
 {
-	TuringMachine machine;
-	interpretCommandLineArgs(argc, args, machine);
+	interpretCommandLineArgs(argc, args);
 /*
 	std::string filePath{ args[1] };
 
@@ -546,4 +680,6 @@ int main(int argc, char** args)
 			}
 		}
 	}*/
+
+	return 0;
 }

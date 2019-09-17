@@ -157,6 +157,34 @@ int TuringMachine::loadTape(std::string filePath)
 	}
 }
 
+void TuringMachine::run(bool isStepsLimited, int stepLimit, bool isTapeShown)
+{
+	if (isStepsLimited)
+	{
+		unsigned int steps = 0;
+		while (steps < stepLimit && (head.state != "r" && head.state != "a"))
+		{
+			++steps;
+			step();
+			if (isTapeShown)
+			{
+				printTape();
+			}
+		}
+	}
+	else
+	{
+		while (head.state != "r" && head.state != "a")
+		{
+			step();
+			if (isTapeShown)
+			{
+				printTape();
+			}
+		}
+	}
+}
+
 void TuringMachine::printTape()
 {
 	std::string tapeString = "";
