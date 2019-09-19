@@ -100,13 +100,13 @@ int TuringMachine::load(std::string filePath)
 				}
 				else
 				{
-					if (isNum(line.c_str()) && 0 < stoi(line) <= table.numStates)
+					if (isNum(line) && 0 < stoi(line) && stoi(line) <= table.numStates)
 					{
 						table.nextState.push_back(line);
 					}
 					else
 					{
-						std::cout << "Error: Invalid State Transition.\nRead " << line << std::endl;
+						std::cout << "Error: Invalid State Transition.\nRead: " << line << std::endl;
 						file.close();
 						return -1;
 					}
@@ -115,7 +115,7 @@ int TuringMachine::load(std::string filePath)
 		}
 		else
 		{
-			printf("Error: Invalid Header Filed.\nExpected: \"TM\".\nRead: %s\n", line.c_str());
+			std::cout << "Error: Invalid Header Filed.\nExpected: \"TM\".\nRead: " << line << std::endl;
 			file.close();
 			return -1;
 		}
@@ -144,7 +144,6 @@ int TuringMachine::loadTape(std::string filePath)
 		std::getline(fin, line);
 		for (int c = 0; c < line.size(); c += 2)
 		{
-			//TODO: Symbol check on read in?
 			tape.push_back(line[c]);
 		}
 		fin.close();

@@ -7,12 +7,6 @@
 
 #include "TuringProgramming.h"
 
-bool is_number(const std::string& s)
-{
-	return !s.empty() && std::find_if(s.begin(),
-		s.end(), [](char c) { return !isdigit(c); }) == s.end();
-}
-
 //Converts input file to .wb1
 int lexWB1(std::string filePath)
 {
@@ -54,27 +48,37 @@ int lexWB1(std::string filePath)
 			{
 				std::istringstream lineStream(line);
 				std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
-				if (args[0][args[0].length() - 1] == ':')
+				if (!args.empty())
 				{
-					if (args[0] != ":")
+					if (args[0][args[0].length() - 1] == ':')
 					{
-						std::string label = args[0].substr(0, args[0].length() - 1);
-						if (labelMap.find(label) == labelMap.end())
+						if (args[0] != ":")
 						{
-							labelMap[label] = lineNum;
+							std::string label = args[0].substr(0, args[0].length() - 1);
+							if (labelMap.find(label) == labelMap.end())
+							{
+								labelMap[label] = lineNum;
+							}
+							else
+							{
+								std::cout << "Repeated label: " << label << " at " << lineNum << " and " << labelMap[label];
+								output.close();
+								file.close();
+								return -1;
+							}
+						}
+						else
+						{
+							std::cout << "Invalid label at " << std::to_string(lineNum + labelMap.size() + 1) << std::endl;
+							output.close();
+							file.close();
+							return -1;
 						}
 					}
 					else
 					{
-						std::cout << "Invalid label at " << std::to_string(lineNum + labelMap.size() + 1) << std::endl;
-						output.close();
-						file.close();
-						return -1;
+						++lineNum;
 					}
-				}
-				else
-				{
-					++lineNum;
 				}
 			}
 
@@ -86,47 +90,50 @@ int lexWB1(std::string filePath)
 			{
 				std::istringstream lineStream(line);
 				std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
-				if (args[0] == "accept") // accept
+				if (!args.empty())
 				{
-					output << "0\n";
-				}
-				else if (args[0] == "reject") //reject
-				{
-					output << "1\n";
-				}
-				else if (args[0] == "if") //if-goto
-				{
-					if (labelMap.find(args[3]) != labelMap.end())
+					if (args[0] == "accept") // accept
 					{
-						output << "2 " << std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
-							<< " " << labelMap[args[3]] << "\n";
+						output << "0\n";
 					}
-					else
+					else if (args[0] == "reject") //reject
 					{
-						std::cout << "Invalid label reference at " << std::to_string(lineNum) << std::endl;
-						output.close();
-						file.close();
-						return -1;
+						output << "1\n";
 					}
-				}
-				else if (args[0] == "write") //write
-				{
-					output << "3 " 
-						<< std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
-						<< "\n";
-				}
-				else if (args[0] == "goto") //goto
-				{
-					if (labelMap.find(args[1]) != labelMap.end())
+					else if (args[0] == "if") //if-goto
 					{
-						output << "4 " << labelMap[args[1]] << "\n";
+						if (labelMap.find(args[3]) != labelMap.end())
+						{
+							output << "2 " << std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
+								<< " " << labelMap[args[3]] << "\n";
+						}
+						else
+						{
+							std::cout << "Invalid label reference at " << std::to_string(lineNum) << std::endl;
+							output.close();
+							file.close();
+							return -1;
+						}
 					}
+					else if (args[0] == "write") //write
+					{
+						output << "3 "
+							<< std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
+							<< "\n";
+					}
+					else if (args[0] == "goto") //goto
+					{
+						if (labelMap.find(args[1]) != labelMap.end())
+						{
+							output << "4 " << labelMap[args[1]] << "\n";
+						}
+					}
+					else if (args[0] == "move") //move
+					{
+						output << "5 " << args[1] << "\n";
+					}
+					++lineNum;
 				}
-				else if (args[0] == "move") //move
-				{
-					output << "5 " << args[1] << "\n";
-				}
-				++lineNum;
 			}
 			output.close();
 		}
@@ -476,7 +483,6 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 	return 0;
 }
 
-//TODO: Refactor
 int interpretCommandLineArgs(int argc, char** args)
 {
 	if (argc >= 2)
@@ -507,7 +513,7 @@ int interpretCommandLineArgs(int argc, char** args)
 									if (std::string{ args[4] } == "-S" || std::string{ args[5] } == "-S")
 									{
 										std::string stepLimitString = std::string{ args[4] } == "-S" ? std::string{ args[5] } : std::string{ args[4] };
-										if (is_number(stepLimitString.substr(1, stepLimitString.size() - 1)))
+										if (isNum(stepLimitString.substr(1, stepLimitString.size() - 1)))
 										{
 											unsigned int stepLimit = std::stoi(stepLimitString.substr(1, stepLimitString.size() - 1));
 											machine.run(true, stepLimit, true);
@@ -540,7 +546,7 @@ int interpretCommandLineArgs(int argc, char** args)
 										std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 									}
 								}
-								else if (is_number(flagString.substr(1, flagString.size() - 1)))
+								else if (isNum(flagString.substr(1, flagString.size() - 1)))
 								{
 									unsigned int stepLimit = std::stoi(flagString.substr(1, flagString.size() - 1));
 									machine.run(true, stepLimit, false);
@@ -649,8 +655,10 @@ int interpretCommandLineArgs(int argc, char** args)
 	}
 	else
 	{
-		//TODO: Make this print all available commands w/ syntax
-		std::cout << "Error: Please specify a command" << std::endl;
+		std::cout << "Please specify a command\n" <<
+			"<run|compile>:\n" <<
+			"\tcompile <ddls|wb1> <wb1|tm> <inputFile> -optimizationLevel(-Ox)\n" <<
+			"\trun <inputFile> -stepLimit(-#) -showTape(-S)" << std::endl;
 		return -1;
 	}
 

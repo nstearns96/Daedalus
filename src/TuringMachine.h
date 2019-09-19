@@ -41,4 +41,6 @@ struct TuringMachine
 	void printTape();
 };
 
+bool isNum(std::string s);
+
 #endif
