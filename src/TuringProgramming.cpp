@@ -285,17 +285,6 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 
 					Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
 
-					for (int c = 0; c < optimizedStates.nextState.size(); ++c)
-					{
-						if (optimizedStates.nextState[c] != "r" && optimizedStates.nextState[c] != "a")
-						{
-							if (std::stoi(optimizedStates.nextState[c]) >= optimizedStates.numStates)
-							{
-								optimizedStates.nextState[c] = "a";
-							}
-						}
-					}
-
 					temp.numStates += optimizedStates.numStates;
 					temp.write.insert(temp.write.end(), optimizedStates.write.begin(), optimizedStates.write.end());
 					temp.move.insert(temp.move.end(), optimizedStates.move.begin(), optimizedStates.move.end());
@@ -310,6 +299,17 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 						if (lineMap.find(temp.nextState[i]) != lineMap.end())
 						{
 							temp.nextState[i] = std::to_string(lineMap[temp.nextState[i]]);
+						}
+					}
+
+					for (int c = 0; c < temp.nextState.size(); ++c)
+					{
+						if (temp.nextState[c] != "r" && temp.nextState[c] != "a")
+						{
+							if (std::stoi(temp.nextState[c]) >= temp.numStates)
+							{
+								temp.nextState[c] = "a";
+							}
 						}
 					}
 

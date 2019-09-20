@@ -89,7 +89,7 @@ Table createOptimizedStates(const OptimizationTemplate& temp, const std::vector<
 {
 	Table result = { 0, {},{},{} };
 	result.numStates = 2 + (temp.moveParam == OptimizationParameter::OP_MOVE_ARG ? -1 : 0) + (temp.ifGotoParam == OptimizationParameter::OP_IF_GOTO_ARG ? temp.alphabetSplit.size() : 0);
-	int numStatesMade = 0;
+	int numStatesMade = (temp.moveParam == OptimizationParameter::OP_MOVE_ARG ? 0 : 1);
 	for (int c = 0; c < alphabet.size(); ++c)
 	{
 		if (std::find(temp.alphabetSplit.begin(), temp.alphabetSplit.end(), alphabet[c]) == temp.alphabetSplit.end())
@@ -106,7 +106,7 @@ Table createOptimizedStates(const OptimizationTemplate& temp, const std::vector<
 			if (temp.moveParam == OptimizationParameter::OP_MOVE_NONE)
 			{
 				result.move.push_back('r');
-				result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
+				result.nextState.push_back(std::to_string(numStates + 1));
 			}
 			else if (temp.moveParam == OptimizationParameter::OP_MOVE_ARG)
 			{
@@ -140,28 +140,25 @@ Table createOptimizedStates(const OptimizationTemplate& temp, const std::vector<
 
 	if (temp.moveParam == OptimizationParameter::OP_MOVE_NONE)
 	{
-		for (int s = 0; s < temp.alphabetSplit.size(); ++s)
+		for (int c = 0; c < alphabet.size(); ++c)
 		{
-			for (int c = 0; c < alphabet.size(); ++c)
+			result.write.push_back(alphabet[c]);
+			result.move.push_back('l');
+			if (temp.gotoParam == OptimizationParameter::OP_GOTO_NONE)
 			{
-				result.write.push_back(alphabet[c]);
-				result.move.push_back('l');
-				if (temp.gotoParam == OptimizationParameter::OP_GOTO_NONE)
-				{
-					result.nextState.push_back(std::to_string(numStates + result.numStates));
-				}
-				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ACC)
-				{
-					result.nextState.push_back("a");
-				}
-				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_REJ)
-				{
-					result.nextState.push_back("r");
-				}
-				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ARG)
-				{
-					result.nextState.push_back("line" + std::to_string(temp.gotoArg));
-				}
+				result.nextState.push_back(std::to_string(numStates + result.numStates));
+			}
+			else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ACC)
+			{
+				result.nextState.push_back("a");
+			}
+			else if (temp.gotoParam == OptimizationParameter::OP_GOTO_REJ)
+			{
+				result.nextState.push_back("r");
+			}
+			else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ARG)
+			{
+				result.nextState.push_back("line" + std::to_string(temp.gotoArg));
 			}
 		}
 	}
@@ -208,14 +205,14 @@ Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<
 				case opIfGoto:
 				{
 					temp.ifGotoParam = OptimizationParameter::OP_IF_GOTO_ARG;
-					temp.alphabetSplit.push_back(ins[i].getArgs()[0][0]);
+					temp.alphabetSplit.push_back(alphabet[std::stoi(ins[i].getArgs()[0])]);
 					temp.ifGotoArgs.push_back(std::stoi(ins[i].getArgs()[1]));
 					break;
 				}
 				case opWrite:
 				{
 					temp.writeParam = OptimizationParameter::OP_WRITE_ARG;
-					temp.writeArg = ins[i].getArgs()[0][0];
+					temp.writeArg = alphabet[std::stoi(ins[i].getArgs()[0])];
 					break;
 				}
 				case opMove:
