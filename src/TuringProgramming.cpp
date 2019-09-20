@@ -494,7 +494,7 @@ int interpretCommandLineArgs(int argc, char** args)
 			{
 				if (args[2][0] == '-' || args[3][0] == '-')
 				{
-					std::cout << "Error: Invalid path variable" << (args[2][0] == '-' ? args[3] : args[2]) << std::endl;
+					std::cout << "Error: Invalid path variable " << (args[2][0] == '-' ? args[3] : args[2]) << std::endl;
 					return -1;
 				}
 
@@ -518,7 +518,7 @@ int interpretCommandLineArgs(int argc, char** args)
 											unsigned int stepLimit = std::stoi(stepLimitString.substr(1, stepLimitString.size() - 1));
 											machine.run(true, stepLimit, true);
 
-											if (machine.head.state != "r" && machine.head.state != "a")
+											if (machine.head.state == "r" || machine.head.state == "a")
 											{
 												std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 											}
@@ -541,7 +541,7 @@ int interpretCommandLineArgs(int argc, char** args)
 								{
 									machine.run(false, 0, true);
 										
-									if (machine.head.state != "r" && machine.head.state != "a")
+									if (machine.head.state == "r" || machine.head.state == "a")
 									{
 										std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 									}
@@ -551,7 +551,7 @@ int interpretCommandLineArgs(int argc, char** args)
 									unsigned int stepLimit = std::stoi(flagString.substr(1, flagString.size() - 1));
 									machine.run(true, stepLimit, false);
 										
-									if (machine.head.state != "r" && machine.head.state != "a")
+									if (machine.head.state == "r" || machine.head.state == "a")
 									{
 										std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
 									}
@@ -658,7 +658,7 @@ int interpretCommandLineArgs(int argc, char** args)
 		std::cout << "Please specify a command\n" <<
 			"<run|compile>:\n" <<
 			"\tcompile <ddls|wb1> <wb1|tm> <inputFile> -optimizationLevel(-Ox)\n" <<
-			"\trun <inputFile> -stepLimit(-#) -showTape(-S)" << std::endl;
+			"\trun <inputFile> <inputTape> -stepLimit(-#) -showTape(-S)" << std::endl;
 		return -1;
 	}
 

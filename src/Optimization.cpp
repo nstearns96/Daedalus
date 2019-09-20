@@ -85,913 +85,154 @@ bool validOptimization(const std::vector<Instruction> &ins, std::string arg)
 	}
 }
 
-//TODO: Needs major refactoring and precomputations
+Table createOptimizedStates(const OptimizationTemplate& temp, const std::vector<char> &alphabet, unsigned int numStates)
+{
+	Table result = { 0, {},{},{} };
+	result.numStates = 2 + (temp.moveParam == OptimizationParameter::OP_MOVE_ARG ? -1 : 0) + (temp.ifGotoParam == OptimizationParameter::OP_IF_GOTO_ARG ? temp.alphabetSplit.size() : 0);
+	int numStatesMade = 0;
+	for (int c = 0; c < alphabet.size(); ++c)
+	{
+		if (std::find(temp.alphabetSplit.begin(), temp.alphabetSplit.end(), alphabet[c]) == temp.alphabetSplit.end())
+		{
+			if (temp.writeParam == OptimizationParameter::OP_WRITE_NONE)
+			{
+				result.write.push_back(alphabet[c]);
+			}
+			else if(temp.writeParam == OptimizationParameter::OP_WRITE_ARG)
+			{
+				result.write.push_back(temp.writeArg);
+			}
+
+			if (temp.moveParam == OptimizationParameter::OP_MOVE_NONE)
+			{
+				result.move.push_back('r');
+				result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
+			}
+			else if (temp.moveParam == OptimizationParameter::OP_MOVE_ARG)
+			{
+				result.move.push_back(temp.moveArg);
+
+				if (temp.gotoParam == OptimizationParameter::OP_GOTO_NONE)
+				{
+					result.nextState.push_back(std::to_string(numStates + result.numStates));
+				}
+				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ACC)
+				{
+					result.nextState.push_back("a");
+				}
+				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_REJ)
+				{
+					result.nextState.push_back("r");
+				}
+				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ARG)
+				{
+					result.nextState.push_back("line" + std::to_string(temp.gotoArg));
+				}
+			}
+		}
+		else
+		{
+			result.write.push_back(alphabet[c]);
+			result.move.push_back('r');
+			result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
+		}
+	}
+
+	if (temp.moveParam == OptimizationParameter::OP_MOVE_NONE)
+	{
+		for (int s = 0; s < temp.alphabetSplit.size(); ++s)
+		{
+			for (int c = 0; c < alphabet.size(); ++c)
+			{
+				result.write.push_back(alphabet[c]);
+				result.move.push_back('l');
+				if (temp.gotoParam == OptimizationParameter::OP_GOTO_NONE)
+				{
+					result.nextState.push_back(std::to_string(numStates + result.numStates));
+				}
+				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ACC)
+				{
+					result.nextState.push_back("a");
+				}
+				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_REJ)
+				{
+					result.nextState.push_back("r");
+				}
+				else if (temp.gotoParam == OptimizationParameter::OP_GOTO_ARG)
+				{
+					result.nextState.push_back("line" + std::to_string(temp.gotoArg));
+				}
+			}
+		}
+	}
+
+	if (temp.ifGotoParam == OptimizationParameter::OP_IF_GOTO_ARG)
+	{
+		for (int s = 0; s < temp.alphabetSplit.size(); ++s)
+		{
+			for (int c = 0; c < alphabet.size(); ++c)
+			{
+				result.write.push_back(alphabet[c]);
+				result.move.push_back('l');
+				result.nextState.push_back("line" + std::to_string(temp.ifGotoArgs[s]));
+			}
+		}
+	}
+
+	return result;
+}
+
 Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<char> &alphabet, unsigned int numStates)
 {
 	Table result = { 0, {}, {}, {} };
 	if (ins.size() > 0)
 	{
-		switch (ins[0].getCode())
+
+		OptimizationTemplate temp = { OptimizationParameter::OP_IF_GOTO_NONE, {}, {}, OptimizationParameter::OP_WRITE_NONE, 0, 
+			OptimizationParameter::OP_MOVE_NONE, 'r', OptimizationParameter::OP_GOTO_NONE, 0};
+
+		for (int i = 0; i < ins.size(); ++i)
 		{
-			case opAcc:
+			switch (ins[i].getCode())
 			{
-				result.numStates = 1;
-				for (int c = 0; c < alphabet.size(); ++c)
+				case opAcc:
 				{
-					result.write.push_back(alphabet[c]);
-					result.move.push_back('r');
-					result.nextState.push_back("a");
-				}
-
-				return result;
-				break;
-			}
-			case opRej:
-			{
-				result.numStates = 1;
-				for (int c = 0; c < alphabet.size(); ++c)
-				{
-					result.write.push_back(alphabet[c]);
-					result.move.push_back('r');
-					result.nextState.push_back("r");
-				}
-
-				return result;
-				break;
-			}
-			case opIfGoto:
-			{
-				std::vector<char> alphabetSplit;
-				int ifGotoEnd = 0;
-				for (; (ifGotoEnd < ins.size()) && (ins[ifGotoEnd].getCode() == opIfGoto); ++ifGotoEnd)
-				{
-					alphabetSplit.push_back(alphabet[std::stoi(ins[ifGotoEnd].getArgs()[0])]);
-				}
-
-				if (ins.size() == ifGotoEnd)
-				{
-					result.numStates = ifGotoEnd + 2;
-					int numStatesMade = 0;
-					for (int c = 0; c < alphabet.size(); ++c)
-					{
-						result.write.push_back(alphabet[c]);
-						result.move.push_back('r');
-						if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-						{
-							result.nextState.push_back(std::to_string(numStates + 1));
-						}
-						else
-						{
-							result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-						}
-					}
-
-					for (int c = 0; c < alphabet.size(); ++c)
-					{
-						result.write.push_back(alphabet[c]);
-						result.move.push_back('l');
-						result.nextState.push_back(std::to_string(numStates + 1 + ifGotoEnd));
-					}
-
-					for (int s = 0; s < ifGotoEnd; ++s)
-					{
-						for (int c = 0; c < alphabet.size(); ++c)
-						{
-							result.write.push_back(alphabet[c]);
-							result.move.push_back('l');
-							result.nextState.push_back("line" + ins[s].getArgs()[1]);
-							
-						}
-					}
-
-					return result;
+					temp.gotoParam = OptimizationParameter::OP_GOTO_ACC;
 					break;
 				}
-				else
+				case opRej:
 				{
-					switch (ins[ifGotoEnd].getCode())
-					{
-						case opAcc:
-						{
-							result.numStates = ifGotoEnd + 2;
-							int numStatesMade = 0;
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('r');
-								if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-								{
-									result.nextState.push_back(std::to_string(numStates + 1));
-								}
-								else
-								{
-									result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-								}
-							}
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('l');
-								result.nextState.push_back("a");
-							}
-
-							for (int s = 0; s < ifGotoEnd; ++s)
-							{
-								for (int c = 0; c < alphabet.size(); ++c)
-								{
-									result.write.push_back(alphabet[c]);
-									result.move.push_back('l');
-									result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-								}
-							}
-
-							return result;
-							break;
-						}
-						case opRej:
-						{
-							result.numStates = ifGotoEnd + 2;
-							int numStatesMade = 0;
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('r');
-								if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-								{
-									result.nextState.push_back(std::to_string(numStates + 1));
-								}
-								else
-								{
-									result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-								}
-							}
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('l');
-								result.nextState.push_back("r");
-							}
-
-							for (int s = 0; s < ifGotoEnd; ++s)
-							{
-								for (int c = 0; c < alphabet.size(); ++c)
-								{
-									result.write.push_back(alphabet[c]);
-									result.move.push_back('l');
-									result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-								}
-							}
-
-							return result;
-							break;
-						}
-						case opWrite:
-						{
-							if (ins.size() == ifGotoEnd + 1)
-							{
-								result.numStates = ifGotoEnd + 2;
-								int numStatesMade = 0;
-								for (int c = 0; c < alphabet.size(); ++c)
-								{
-									result.move.push_back('r');
-									if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-									{
-										result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-										result.nextState.push_back(std::to_string(numStates + 1));
-									}
-									else
-									{
-										result.write.push_back(alphabet[c]);
-										result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-									}
-								}
-
-								for (int c = 0; c < alphabet.size(); ++c)
-								{
-									result.write.push_back(alphabet[c]);
-									result.move.push_back('l');
-									result.nextState.push_back(std::to_string(numStates + 1 + ifGotoEnd));
-								}
-
-								for (int s = 0; s < ifGotoEnd; ++s)
-								{
-									for (int c = 0; c < alphabet.size(); ++c)
-									{
-										result.write.push_back(alphabet[c]);
-										result.move.push_back('l');
-										result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-									}
-								}
-
-								return result;
-								break;
-							}
-							else
-							{
-								switch (ins[ifGotoEnd + 1].getCode())
-								{
-									case opAcc:
-									{
-										result.numStates = ifGotoEnd + 2;
-										int numStatesMade = 0;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.move.push_back('r');
-											if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-											{
-												result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-												result.nextState.push_back(std::to_string(numStates + 1));
-											}
-											else
-											{
-												result.write.push_back(alphabet[c]);
-												result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-											}
-										}
-
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[c]);
-											result.move.push_back('l');
-											result.nextState.push_back("a");
-										}
-
-										for (int s = 0; s < ifGotoEnd; ++s)
-										{
-											for (int c = 0; c < alphabet.size(); ++c)
-											{
-												result.write.push_back(alphabet[c]);
-												result.move.push_back('l');
-												result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-											}
-										}
-
-										return result;
-										break;
-									}
-									case opRej:
-									{
-										result.numStates = ifGotoEnd + 2;
-										int numStatesMade = 0;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.move.push_back('r');
-											if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-											{
-												result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-												result.nextState.push_back(std::to_string(numStates + 1));
-											}
-											else
-											{
-												result.write.push_back(alphabet[c]);
-												result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-											}
-										}
-
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[c]);
-											result.move.push_back('l');
-											result.nextState.push_back("r");
-										}
-
-										for (int s = 0; s < ifGotoEnd; ++s)
-										{
-											for (int c = 0; c < alphabet.size(); ++c)
-											{
-												result.write.push_back(alphabet[c]);
-												result.move.push_back('l');
-												result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-											}
-										}
-
-										return result;
-										break;
-									}
-									case opGoto:
-									{
-										result.numStates = ifGotoEnd + 2;
-										int numStatesMade = 0;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.move.push_back('r');
-											if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-											{
-												result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-												result.nextState.push_back(std::to_string(numStates + 1));
-											}
-											else
-											{
-												result.write.push_back(alphabet[c]);
-												result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-											}
-										}
-
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[c]);
-											result.move.push_back('l');
-											result.nextState.push_back("line" + ins[ifGotoEnd].getArgs()[1]);
-										}
-
-										for (int s = 0; s < ifGotoEnd; ++s)
-										{
-											for (int c = 0; c < alphabet.size(); ++c)
-											{
-												result.write.push_back(alphabet[c]);
-												result.move.push_back('l');
-												result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-											}
-										}
-
-										return result;
-										break;
-									}
-									case opMove:
-									{
-										if (ins.size() == ifGotoEnd + 2)
-										{
-											result.numStates = ifGotoEnd + 1;
-											int numStatesMade = 0;
-											for (int c = 0; c < alphabet.size(); ++c)
-											{
-												if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-												{
-													result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-													result.move.push_back(ins[ifGotoEnd + 1].getArgs()[0][0]);
-													result.nextState.push_back(std::to_string(numStates + 1 + ifGotoEnd));
-												}
-												else
-												{
-													result.write.push_back(alphabet[c]);
-													result.move.push_back('r');
-													result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-												}
-											}
-
-											for (int s = 0; s < ifGotoEnd; ++s)
-											{
-												for (int c = 0; c < alphabet.size(); ++c)
-												{
-													result.write.push_back(alphabet[c]);
-													result.move.push_back('l');
-													result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-												}
-											}
-
-											return result;
-											break;
-										}
-										else
-										{
-											switch (ins[ifGotoEnd + 2].getCode())
-											{
-												case opAcc:
-												{
-													result.numStates = ifGotoEnd + 1;
-													int numStatesMade = 0;
-													for (int c = 0; c < alphabet.size(); ++c)
-													{
-														if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-														{
-															result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-															result.move.push_back(ins[ifGotoEnd + 1].getArgs()[0][0]);
-															result.nextState.push_back("a");
-														}
-														else
-														{
-															result.write.push_back(alphabet[c]);
-															result.move.push_back('r');
-															result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-														}
-													}
-
-													for (int s = 0; s < ifGotoEnd; ++s)
-													{
-														for (int c = 0; c < alphabet.size(); ++c)
-														{
-															result.write.push_back(alphabet[c]);
-															result.move.push_back('l');
-															result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-														}
-													}
-
-													return result;
-													break;
-												}
-												case opRej:
-												{
-													result.numStates = ifGotoEnd + 1;
-													int numStatesMade = 0;
-													for (int c = 0; c < alphabet.size(); ++c)
-													{
-														if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-														{
-															result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-															result.move.push_back(ins[ifGotoEnd + 1].getArgs()[0][0]);
-															result.nextState.push_back("r");
-														}
-														else
-														{
-															result.write.push_back(alphabet[c]);
-															result.move.push_back('r');
-															result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-														}
-													}
-
-													for (int s = 0; s < ifGotoEnd; ++s)
-													{
-														for (int c = 0; c < alphabet.size(); ++c)
-														{
-															result.write.push_back(alphabet[c]);
-															result.move.push_back('l');
-															result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-														}
-													}
-
-													return result;
-													break;
-												}
-												case opGoto:
-												{
-													result.numStates = ifGotoEnd + 1;
-													int numStatesMade = 0;
-													for (int c = 0; c < alphabet.size(); ++c)
-													{
-														if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-														{
-															result.write.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-															result.move.push_back(ins[ifGotoEnd + 1].getArgs()[0][0]);
-															result.nextState.push_back("line" + ins[ifGotoEnd + 2].getArgs()[0]);
-														}
-														else
-														{
-															result.write.push_back(alphabet[c]);
-															result.move.push_back('r');
-															result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-														}
-													}
-
-													for (int s = 0; s < ifGotoEnd; ++s)
-													{
-														for (int c = 0; c < alphabet.size(); ++c)
-														{
-															result.write.push_back(alphabet[c]);
-															result.move.push_back('l');
-															result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-														}
-													}
-
-													return result;
-													break;
-												}
-											}
-										}
-
-										break;
-									}
-								}
-							}
-
-							break;
-						}
-						case opMove:
-						{
-							if (ins.size() == ifGotoEnd + 1)
-							{
-								result.numStates = ifGotoEnd + 1;
-								int numStatesMade = 0;
-								for (int c = 0; c < alphabet.size(); ++c)
-								{
-									result.write.push_back(alphabet[c]);
-									if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-									{
-										result.move.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-										result.nextState.push_back(std::to_string(numStates + 1 + ifGotoEnd));
-									}
-									else
-									{
-										result.move.push_back('r');
-										result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-									}
-								}
-
-								for (int s = 0; s < ifGotoEnd; ++s)
-								{
-									for (int c = 0; c < alphabet.size(); ++c)
-									{
-										result.write.push_back(alphabet[c]);
-										result.move.push_back('l');
-										result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-									}
-								}
-
-								return result;
-								break;
-							}
-							else
-							{
-								switch (ins[ifGotoEnd + 1].getCode())
-								{
-									case opAcc:
-									{
-										result.numStates = ifGotoEnd + 1;
-										int numStatesMade = 0;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[c]);
-											if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-											{
-												result.move.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-												result.nextState.push_back("a");
-											}
-											else
-											{
-												result.move.push_back('r');
-												result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-											}
-										}
-
-										for (int s = 0; s < ifGotoEnd; ++s)
-										{
-											for (int c = 0; c < alphabet.size(); ++c)
-											{
-												result.write.push_back(alphabet[c]);
-												result.move.push_back('l');
-												result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-											}
-										}
-
-										return result;
-										break;
-									}
-									case opRej:
-									{
-										result.numStates = ifGotoEnd + 1;
-										int numStatesMade = 0;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[c]);
-											if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-											{
-												result.move.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-												result.nextState.push_back("r");
-											}
-											else
-											{
-												result.move.push_back('r');
-												result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-											}
-										}
-
-										for (int s = 0; s < ifGotoEnd; ++s)
-										{
-											for (int c = 0; c < alphabet.size(); ++c)
-											{
-												result.write.push_back(alphabet[c]);
-												result.move.push_back('l');
-												result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-											}
-										}
-
-										return result;
-										break;
-									}
-									case opGoto:
-									{
-										result.numStates = ifGotoEnd + 1;
-										int numStatesMade = 0;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[c]);
-											if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-											{
-												result.move.push_back(ins[ifGotoEnd].getArgs()[0][0]);
-												result.nextState.push_back("line" + ins[ifGotoEnd + 1].getArgs()[0]);
-											}
-											else
-											{
-												result.move.push_back('r');
-												result.nextState.push_back(std::to_string(numStates + ++numStatesMade));
-											}
-										}
-
-										for (int s = 0; s < ifGotoEnd; ++s)
-										{
-											for (int c = 0; c < alphabet.size(); ++c)
-											{
-												result.write.push_back(alphabet[c]);
-												result.move.push_back('l');
-												result.nextState.push_back("line" + ins[s].getArgs()[1]);
-
-											}
-										}
-
-										return result;
-										break;
-									}
-								}
-							}
-
-							break;
-						}
-						case opGoto:
-						{
-							result.numStates = ifGotoEnd + 2;
-							int numStatesMade = 0;
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('r');
-								if (std::find(alphabetSplit.begin(), alphabetSplit.end(), alphabet[c]) == alphabetSplit.end())
-								{
-									result.nextState.push_back(std::to_string(numStates + 1));
-								}
-								else
-								{
-									result.nextState.push_back(std::to_string(numStates + 1 + ++numStatesMade));
-								}
-							}
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('l');
-								result.nextState.push_back("line" + ins[ifGotoEnd].getArgs()[0]);
-							}
-
-							for (int s = 0; s < ifGotoEnd; ++s)
-							{
-								for (int c = 0; c < alphabet.size(); ++c)
-								{
-									result.write.push_back(alphabet[c]);
-									result.move.push_back('l');
-									result.nextState.push_back("line" + ins[s].getArgs()[1]);
-								}
-							}
-
-							return result;
-							break;
-						}
-					}
-				}
-
-				break;
-			}
-			case opWrite:
-			{
-				if (ins.size() == 1)
-				{
-					result.numStates = 2;
-					
-					for (int c = 0; c < alphabet.size(); ++c)
-					{
-						result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-						result.move.push_back('r');
-						result.nextState.push_back(std::to_string(numStates + 1));
-					}
-					for (int c = 0; c < alphabet.size(); ++c)
-					{
-						result.write.push_back(alphabet[c]);
-						result.move.push_back('l');
-						result.nextState.push_back(std::to_string(numStates + 2));
-					}
-				}
-				else
-				{
-					switch (ins[1].getCode())
-					{
-						case opAcc:
-						{
-							result.numStates = 2;
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-								result.move.push_back('r');
-								result.nextState.push_back(std::to_string(numStates + 1));
-							}
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('l');
-								result.nextState.push_back("a");
-							}
-
-							return result;
-							break;
-						}
-						case opRej:
-						{
-							result.numStates = 2;
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-								result.move.push_back('r');
-								result.nextState.push_back(std::to_string(numStates + 1));
-							}
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('l');
-								result.nextState.push_back("r");
-							}
-							
-							return result;
-							break;
-						}
-						case opMove:
-						{
-							if (ins.size() == 2)
-							{
-								result.numStates = 1;
-
-								for (int c = 0; c < alphabet.size(); ++c)
-								{
-									result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-									result.move.push_back(ins[1].getArgs()[0][0]);
-									result.nextState.push_back(std::to_string(numStates + 1));
-								}
-
-								return result;
-								break;
-							}
-							else
-							{
-								switch (ins[2].getCode())
-								{
-									case opAcc:
-									{
-										result.numStates = 1;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-											result.move.push_back(ins[1].getArgs()[0][0]);
-											result.nextState.push_back("a");
-										}
-
-										return result;
-										break;
-									}
-									case opRej:
-									{
-										result.numStates = 1;
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-											result.move.push_back(ins[1].getArgs()[0][0]);
-											result.nextState.push_back("r");
-										}
-
-										return result;
-										break;
-									}
-									case opGoto:
-									{
-										result.numStates = 1;
-
-										for (int c = 0; c < alphabet.size(); ++c)
-										{
-											result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-											result.move.push_back(ins[1].getArgs()[0][0]);
-											result.nextState.push_back("line" + ins[2].getArgs()[0]);
-										}
-
-										return result;
-										break;
-									}
-								}
-							}
-
-							break;
-						}
-						case opGoto:
-						{
-							result.numStates = 2;
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-								result.move.push_back('r');
-								result.nextState.push_back(std::to_string(numStates + 1));
-							}
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back('l');
-								result.nextState.push_back("line" + ins[1].getArgs()[0]);
-							}
-
-							return result;
-							break;
-						}
-					}
-				}
-
-				break;
-			}
-			case opGoto:
-			{
-				result.numStates = 2;
-
-				for (int c = 0; c < alphabet.size(); ++c)
-				{
-					result.write.push_back(alphabet[std::stoi(ins[0].getArgs()[0])]);
-					result.move.push_back('r');
-					result.nextState.push_back(std::to_string(numStates + 1));
-				}
-				for (int c = 0; c < alphabet.size(); ++c)
-				{
-					result.write.push_back(alphabet[c]);
-					result.move.push_back('l');
-					result.nextState.push_back("line" + ins[0].getArgs()[0]);
-				}
-
-				return result;
-				break;
-			}
-			case opMove:
-			{
-				if (ins.size() == 1)
-				{
-					result.numStates = 1;
-					
-					for (int c = 0; c < alphabet.size(); ++c)
-					{
-						result.write.push_back(alphabet[c]);
-						result.move.push_back(ins[0].getArgs()[0][0]);
-						result.nextState.push_back(std::to_string(numStates + 1));
-					}
-
-					return result;
+					temp.gotoParam = OptimizationParameter::OP_GOTO_REJ;
 					break;
 				}
-				else
+				case opIfGoto:
 				{
-					switch (ins[1].getCode())
-					{
-						case opAcc:
-						{
-							result.numStates = 1;
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back(ins[0].getArgs()[0][0]);
-								result.nextState.push_back("a");
-							}
-
-							return result;
-							break;
-						}
-						case opRej:
-						{
-							result.numStates = 1;
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back(ins[0].getArgs()[0][0]);
-								result.nextState.push_back("r");
-							}
-
-							return result;
-							break;
-						}
-						case opGoto:
-						{
-							result.numStates = 1;
-
-							for (int c = 0; c < alphabet.size(); ++c)
-							{
-								result.write.push_back(alphabet[c]);
-								result.move.push_back(ins[0].getArgs()[0][0]);
-								result.nextState.push_back("line" + ins[1].getArgs()[0]);
-							}
-
-							return result;
-							break;
-						}
-					}
+					temp.ifGotoParam = OptimizationParameter::OP_IF_GOTO_ARG;
+					temp.alphabetSplit.push_back(ins[i].getArgs()[0][0]);
+					temp.ifGotoArgs.push_back(std::stoi(ins[i].getArgs()[1]));
+					break;
+				}
+				case opWrite:
+				{
+					temp.writeParam = OptimizationParameter::OP_WRITE_ARG;
+					temp.writeArg = ins[i].getArgs()[0][0];
+					break;
+				}
+				case opMove:
+				{
+					temp.moveParam = OptimizationParameter::OP_MOVE_ARG;
+					temp.moveArg = ins[i].getArgs()[0][0];
+					break;
+				}
+				case opGoto:
+				{
+					temp.gotoParam = OptimizationParameter::OP_GOTO_ARG;
+					temp.gotoArg = std::stoi(ins[i].getArgs()[0]);
+					break;
 				}
 			}
 		}
+		result = createOptimizedStates(temp, alphabet, numStates);
 	}
 
 	return result;

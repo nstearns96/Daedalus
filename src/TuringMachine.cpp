@@ -100,7 +100,7 @@ int TuringMachine::load(std::string filePath)
 				}
 				else
 				{
-					if (isNum(line) && 0 < stoi(line) && stoi(line) <= table.numStates)
+					if (isNum(line) && 0 <= stoi(line) && stoi(line) <= table.numStates)
 					{
 						table.nextState.push_back(line);
 					}
