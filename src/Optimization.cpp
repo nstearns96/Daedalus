@@ -288,12 +288,22 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 					}
 					else// if(isCurrentStateIdenticalWrite)
 					{
+						bool madeChange = false;
 						int stateWriteAlphabetOffset = std::find(alphabet.begin(), alphabet.end(), table.write[alphabet.size()*currentState + currentChar]) - alphabet.begin();
+						if (table.write[alphabet.size()*currentState + currentChar] != table.write[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset] ||
+							table.move[alphabet.size()*currentState + currentChar] != table.move[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset] ||
+							table.nextState[alphabet.size()*currentState + currentChar] != table.nextState[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset])
+						{
+							madeChange = true;
+						}
 						table.write[alphabet.size()*currentState + currentChar] = table.write[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset];
 						table.move[alphabet.size()*currentState + currentChar] = table.move[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset];
 						table.nextState[alphabet.size()*currentState + currentChar] = table.nextState[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset];
-						currentChar = -1;
-						continue;
+						if (madeChange)
+						{
+							currentChar = -1;
+							continue;
+						}
 					}
 				}
 

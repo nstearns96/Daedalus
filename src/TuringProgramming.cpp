@@ -4,162 +4,242 @@
 #include <map>
 #include <iostream>
 #include <algorithm>
+#include <filesystem>
+#include <iostream>
 
 #include "TuringProgramming.h"
 
+namespace fs = std::filesystem;
+
+std::map<std::string, std::ifstream> loadDirectoryToMap(std::string filePath)
+{
+	std::map<std::string, std::ifstream> result;
+	fs::directory_iterator directory("daedalus\\" + filePath);
+	for (fs::directory_iterator file = fs::begin(directory); file != fs::end(directory); ++file)
+	{
+		if (file->is_regular_file())
+		{
+			result[file->path().string()] = std::ifstream(file->path());
+		}
+	}
+
+	return result;
+}
+
 //Converts input file to .wb1
 int lexWB1(std::string filePath)
-{
-	std::ifstream file;
-	file.exceptions(std::ios::badbit);
-	
-	std::string inputFilePath = "daedalus/" + filePath + ".ddls";
+{	
+	std::map<std::string, std::ifstream> directoryMap = loadDirectoryToMap(filePath);
 
-	file.open(inputFilePath);
-
-	if (file)
+	bool areFilesOpen = true;
+	std::string unopenedFiles = "";
+	for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
 	{
-		std::ofstream output;
-
-		std::string outputFilePath = "wb1/" + filePath + ".wb1";
-
-		output.open(outputFilePath);
-		if (output)
+		if (!iter->second)
 		{
-			//Write WB1 header
-			std::string line;
-			output << "WB1\n";
-			getline(file, line);
+			areFilesOpen = false;
+			unopenedFiles += iter->first + " ";
+		}
+	}
 
-			//Read in alphabet
-			std::vector<char> alphabet;
-			for (int i = 0; i < line.length(); i += 2)
+	if (areFilesOpen)
+	{
+
+		std::map<std::string, std::string> lineIters;
+		for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
+		{
+			lineIters[iter->first] = "";
+		}
+
+		bool isMainFailOpen = false;
+		std::map<std::string, std::ifstream>::iterator mainFile;
+		for (std::map<std::string, std::string>::iterator iter = lineIters.begin(); iter != lineIters.end(); ++iter)
+		{
+			if (iter->first.substr(iter->first.size() - 9, 9) == "main.ddls")
 			{
-				alphabet.push_back(line[i]);
+				isMainFailOpen = true;
+				mainFile = directoryMap.find(iter->first);
+				break;
+			}
+		}
+
+		if (isMainFailOpen)
+		{
+			std::vector<std::string> standardFileRefs;
+
+			std::string labelLine;
+			while (getline(mainFile->second, labelLine))
+			{
+				std::istringstream lineStream(labelLine);
+				std::vector<std::string> args(std::istream_iterator<std::string>{lineStream},
+					std::istream_iterator<std::string>());
+				if (args[0] == "if")
+				{
+					if (args[3].size() >= 14 && args[3].substr(0, 14) == "call_standard_")
+					{
+						standardFileRefs.push_back(args[3].substr(5, args[3].size()));
+					}
+				}
+				else if (args[0] == "goto")
+				{
+					if (args[1].size() >= 14 && args[1].substr(0, 14) == "call_standard_")
+					{
+						standardFileRefs.push_back(args[1].substr(5, args[1].size()));
+					}
+				}
 			}
 
-			//Write alphabet
-			output << line + '\n';
+			mainFile->second.clear();
+			mainFile->second.seekg(0, mainFile->second.beg);
 
-			//Parse labels
-			std::map<std::string, unsigned int> labelMap;
-			unsigned int lineNum = 0;
-			while (std::getline(file, line))
+			std::vector<std::map<std::string, std::ifstream>::iterator> standardFilesOpened;
+			for (int r = 0; r < standardFileRefs.size(); ++r)
 			{
-				std::istringstream lineStream(line);
-				std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
-				if (!args.empty())
+				directoryMap[standardFileRefs[r]] = std::ifstream("standard\\" + standardFileRefs[r] + ".ddls");
+				standardFilesOpened.push_back(directoryMap.find(standardFileRefs[r]));
+			}
+
+			bool areStandardFilesOpened = true;
+			for (int f = 0; f < standardFilesOpened.size(); ++f)
+			{
+				if (!standardFilesOpened[f]->second)
 				{
-					if (args[0][args[0].length() - 1] == ':')
+					areStandardFilesOpened = false;
+					break;
+				}
+				else
+				{
+					lineIters[standardFilesOpened[f]->first] = "";
+				}
+			}
+
+			if (areStandardFilesOpened)
+			{
+
+				bool isValidAlphabet = true;
+
+				std::string alphabetString;
+				std::string invalidAlphabetFile;
+				for (std::map<std::string, std::string>::iterator iter = lineIters.begin(); iter != lineIters.end(); ++iter)
+				{
+					getline(directoryMap[iter->first], iter->second);
+					if (iter == lineIters.begin())
 					{
-						if (args[0] != ":")
-						{
-							std::string label = args[0].substr(0, args[0].length() - 1);
-							if (labelMap.find(label) == labelMap.end())
-							{
-								labelMap[label] = lineNum;
-							}
-							else
-							{
-								std::cout << "Repeated label: " << label << " at " << lineNum << " and " << labelMap[label];
-								output.close();
-								file.close();
-								return -1;
-							}
-						}
-						else
-						{
-							std::cout << "Invalid label at " << std::to_string(lineNum + labelMap.size() + 1) << std::endl;
-							output.close();
-							file.close();
-							return -1;
-						}
+						alphabetString = iter->second;
 					}
 					else
 					{
-						++lineNum;
+						if (alphabetString != iter->second)
+						{
+							isValidAlphabet = false;
+							invalidAlphabetFile = iter->first;
+							break;
+						}
 					}
 				}
-			}
 
-			file.clear();
-			file.seekg(0, file.beg);
-			lineNum = 1;
-
-			while (std::getline(file, line))
-			{
-				std::istringstream lineStream(line);
-				std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
-				if (!args.empty())
+				if (isValidAlphabet)
 				{
-					if (args[0] == "accept") // accept
+
+					std::ofstream outputFile;
+					std::string outputFilePath = "wb1/" + filePath + ".wb1";
+
+					outputFile.open(outputFilePath);
+					if (outputFile)
 					{
-						output << "0\n";
-					}
-					else if (args[0] == "reject") //reject
-					{
-						output << "1\n";
-					}
-					else if (args[0] == "if") //if-goto
-					{
-						if (labelMap.find(args[3]) != labelMap.end())
+						//Write WB1 header
+						outputFile << "WB1\n";
+
+						//Read in alphabet
+						std::vector<char> alphabet;
+						for (int i = 0; i < alphabetString.size(); i += 2)
 						{
-							output << "2 " << std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
-								<< " " << labelMap[args[3]] << "\n";
+							alphabet.push_back(alphabetString[i]);
 						}
-						else
+
+						//Write alphabet
+						outputFile << alphabetString + '\n';
+
+						//Copy main file over
+						while (getline(mainFile->second, lineIters[mainFile->first]))
 						{
-							std::cout << "Invalid label reference at " << std::to_string(lineNum) << std::endl;
-							output.close();
-							file.close();
-							return -1;
+							outputFile << lineIters[mainFile->first] + "\n";
 						}
-					}
-					else if (args[0] == "write") //write
-					{
-						output << "3 "
-							<< std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
-							<< "\n";
-					}
-					else if (args[0] == "goto") //goto
-					{
-						if (labelMap.find(args[1]) != labelMap.end())
+
+						for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
 						{
-							output << "4 " << labelMap[args[1]] << "\n";
+							if (iter != mainFile)
+							{
+								while (getline(iter->second, lineIters[iter->first]))
+								{
+									outputFile << lineIters[iter->first] + "\n";
+								}
+							}
 						}
+
+						outputFile.close();
 					}
-					else if (args[0] == "move") //move
+				}
+				else
+				{
+					for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
 					{
-						output << "5 " << args[1] << "\n";
+						iter->second.close();
 					}
-					++lineNum;
+					std::cout << "Error: Invalid alphabet in file " << invalidAlphabetFile << std::endl;
+					return -1;
 				}
 			}
-			output.close();
+		}
+		for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
+		{
+			iter->second.close();
 		}
 
-		file.close();
 	}
 	else
 	{
-		std::cout << "Error: Failed to open file: " + filePath + ".ddls" << std::endl;
+		for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
+		{
+			iter->second.close();
+		}
+		std::cout << "Error: Failed to open file(s): " + unopenedFiles << std::endl;
 		return -1;
 	}
 
 	return 0;
 }
 
-//Converts .wb1 to .tm
-int wb1toTM(std::string filePath, int optimizationLevel)
+std::vector<std::string> loadFileIntoVector(std::string filePath)
 {
+	std::vector<std::string> result;
+
 	std::ifstream file;
 	file.exceptions(std::ios::badbit);
-	
+	std::string line;
+
 	std::string inputFilePath = "wb1/" + filePath + ".wb1";
 
 	file.open(inputFilePath);
 
 	if (file)
+	{
+		while (getline(file, line))
+		{
+			result.push_back(line);
+		}
+		file.close();
+	}
+
+	return result;
+}
+
+//Converts .wb1 to .tm
+int wb1toTM(std::string filePath, int optimizationLevel)
+{
+	std::vector<std::string> loadedFile = loadFileIntoVector(filePath);
+	
+	if (!loadedFile.empty())
 	{
 		std::ofstream output;
 
@@ -169,33 +249,122 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 		if (output)
 		{
 			//Check for valid header
-			std::string line;
-			getline(file, line);
-
-			if (line == "WB1")
+			if (loadedFile[0] == "WB1")
 			{
 				//Write header to file
 				output << "TM\n";
 
-				//Read in alphabet
-				getline(file, line);
 				std::vector<char> alphabet;
-				for (int I = 0; I < line.length(); I += 2)
+				for (int c = 0; c < loadedFile[1].size(); c += 2)
 				{
-					alphabet.push_back(line[I]);
+					alphabet.push_back(loadedFile[1][c]);
 				}
 
 				//Write alphabet
-				output << line + '\n';
+				output << loadedFile[1] + "\n";
+
+				//Parse labels
+				std::map<std::string, unsigned int> labelMap;
+				int lineNum = 0;
+				for(int l = 2; l < loadedFile.size(); ++l)
+				{
+					std::istringstream lineStream(loadedFile[l]);
+					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
+					if (!args.empty())
+					{
+						if (args[0][args[0].length() - 1] == ':')
+						{
+							if (args[0] != ":")
+							{
+								std::string label = args[0].substr(0, args[0].length() - 1);
+								if (labelMap.find(label) == labelMap.end())
+								{
+									labelMap[label] = lineNum;
+								}
+								else
+								{
+									std::cout << "Repeated label: " << label << " at " << l << " and " << labelMap[label];
+									output.close();
+									return -1;
+								}
+							}
+							else
+							{
+								std::cout << "Invalid label at " << std::to_string(l + labelMap.size()) << std::endl;
+								output.close();
+								return -1;
+							}
+						}
+						else
+						{
+							++lineNum;
+						}
+					}
+				}
+
+				for (int l = 1; l < loadedFile.size(); ++l)
+				{
+					std::istringstream lineStream(loadedFile[l]);
+					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
+					if (labelMap.find(args[0].substr(0, args[0].size() - 1)) != labelMap.end())
+					{
+						loadedFile.erase(loadedFile.begin() + l--);
+					}
+				}
+
+				for(int l = 1; l < loadedFile.size(); ++l)
+				{
+					std::istringstream lineStream(loadedFile[l]);
+					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
+					if (!args.empty())
+					{
+						if (args[0] == "accept") // accept
+						{
+							loadedFile[l] = "0\n";
+						}
+						else if (args[0] == "reject") //reject
+						{
+							loadedFile[l] = "1\n";
+						}
+						else if (args[0] == "if") //if-goto
+						{
+							if (labelMap.find(args[3]) != labelMap.end())
+							{
+								loadedFile[l] = "2 " + std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
+									+ " " + std::to_string(labelMap[args[3]]) + "\n";
+							}
+							else
+							{
+								std::cout << "Invalid label reference at " << std::to_string(l) << std::endl;
+								output.close();
+								return -1;
+							}
+						}
+						else if (args[0] == "write") //write
+						{
+							loadedFile[l] = "3 "
+								+ std::to_string(std::find(alphabet.begin(), alphabet.end(), args[1][0]) - alphabet.begin())
+								+ "\n";
+						}
+						else if (args[0] == "goto") //goto
+						{
+							if (labelMap.find(args[1]) != labelMap.end())
+							{
+								loadedFile[l] = "4 " + std::to_string(labelMap[args[1]]) + "\n";
+							}
+						}
+						else if (args[0] == "move") //move
+						{
+							loadedFile[l] = "5 " + args[1] + "\n";
+						}
+					}
+				}
 
 				std::vector<std::string> goTos;
-				unsigned int lineNum = 0;
 
-				fpos_t codePosition = file.tellg();
-
-				while (getline(file, line))
+				for(int l = 2; l < loadedFile.size(); ++l)
 				{
-					std::istringstream lineStream(line);
+					std::istringstream lineStream(loadedFile[l]);
 					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream},
 						std::istream_iterator<std::string>());
 
@@ -209,11 +378,7 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 					}
 				}
 
-				file.clear();
-				file.seekg(codePosition);
-
 				//Maps .wb1 lines to .tm states
-				lineNum = 0;
 				std::map<std::string, unsigned int> lineMap;
 
 				lineMap["line0"] = 0;
@@ -225,16 +390,17 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 				{
 					//List of current instructions read in
 					std::vector<Instruction> currentInstructions;
-
-					while (getline(file, line))
+					
+					int l = 2;
+					for(; l < loadedFile.size(); ++l)
 					{
-						std::istringstream lineStream(line);
+						std::istringstream lineStream(loadedFile[l]);
 						std::vector<std::string> args(std::istream_iterator<std::string>{lineStream},
 							std::istream_iterator<std::string>());
 
 						if (currentInstructions.size() != 0 &&
 							(!validOptimization(currentInstructions, args[0]) ||
-							(std::find(goTos.begin(), goTos.end(), std::to_string(lineNum)) != goTos.end())))
+							(std::find(goTos.begin(), goTos.end(), std::to_string(l-2)) != goTos.end())))
 						{
 							//Optimized states
 							Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
@@ -244,7 +410,7 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 							temp.move.insert(temp.move.end(), optimizedStates.move.begin(), optimizedStates.move.end());
 							temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
 
-							lineMap["line" + std::to_string(lineNum)] = temp.numStates;
+							lineMap["line" + std::to_string(l-2)] = temp.numStates;
 							currentInstructions.clear();
 						}
 						switch (std::stoi(args[0]))
@@ -280,7 +446,6 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 							break;
 						}
 						}
-						++lineNum;
 					}
 
 					Table optimizedStates = getOptimizedStates(currentInstructions, alphabet, temp.numStates);
@@ -290,7 +455,7 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 					temp.move.insert(temp.move.end(), optimizedStates.move.begin(), optimizedStates.move.end());
 					temp.nextState.insert(temp.nextState.end(), optimizedStates.nextState.begin(), optimizedStates.nextState.end());
 
-					lineMap["line" + std::to_string(lineNum)] = temp.numStates;
+					lineMap["line" + std::to_string(l-2)] = temp.numStates;
 					currentInstructions.clear();
 
 					//Replace labels with mapped states
@@ -320,10 +485,10 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 				}
 				else
 				{
-
-					while (getline(file, line))
+					int l = 2;
+					for(; l < loadedFile.size(); ++l)
 					{
-						std::istringstream lineStream(line);
+						std::istringstream lineStream(loadedFile[l]);
 						std::vector<std::string> args(std::istream_iterator<std::string>{lineStream},
 							std::istream_iterator<std::string>());
 
@@ -369,26 +534,37 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 								{
 									temp.write.push_back(alphabet[c]);
 									temp.move.push_back('r');
-									temp.nextState.push_back(std::to_string(temp.numStates + 1));
+									if (args[1] == std::to_string(c))
+									{
+										temp.nextState.push_back(std::to_string(temp.numStates + 2));
+									}
+									else
+									{
+										temp.nextState.push_back(std::to_string(temp.numStates + 1));
+									}
 								}
+
 								for (int c = 0; c < alphabet.size(); ++c)
 								{
 									temp.write.push_back(alphabet[c]);
 									temp.move.push_back('l');
-									if (args[1][0] == alphabet[c])
-									{
-										temp.nextState.push_back("line" + args[2]);
-									}
-									temp.nextState.push_back(std::to_string(temp.numStates + 2));
+									temp.nextState.push_back(std::to_string(temp.numStates + 3));
 								}
-								temp.numStates += 2;
+
+								for (int c = 0; c < alphabet.size(); ++c)
+								{
+									temp.write.push_back(alphabet[c]);
+									temp.move.push_back('l');
+									temp.nextState.push_back("line" + args[2]);
+								}
+								temp.numStates += 3;
 								break;
 							}
 							case opWrite:
 							{
 								for (int c = 0; c < alphabet.size(); ++c)
 								{
-									temp.write.push_back(args[1][0]);
+									temp.write.push_back(alphabet[std::stoi(args[1])]);
 									temp.move.push_back('r');
 									temp.nextState.push_back(std::to_string(temp.numStates + 1));
 								}
@@ -423,15 +599,14 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 								for (int c = 0; c < alphabet.size(); ++c)
 								{
 									temp.write.push_back(alphabet[c]);
-									temp.move.push_back('r');
+									temp.move.push_back(args[1][0]);
 									temp.nextState.push_back(std::to_string(temp.numStates + 1));
 								}
 								temp.numStates += 1;
 								break;
 							}
 						}
-						lineMap["line" + std::to_string(lineNum + 1)] = temp.numStates;
-						++lineNum;
+						lineMap["line" + std::to_string(l-1)] = temp.numStates;
 					}
 
 					for (int i = 0; i < temp.nextState.size(); ++i)
@@ -463,16 +638,13 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 			}
 			else
 			{
-			std::cout << "Invalid Header Found.\nExpected: \"WB1\".\nRead: \"" << line << "\"" << std::endl;
+			std::cout << "Invalid Header Found.\nExpected: \"WB1\".\nRead: \"" << loadedFile[0] << "\"" << std::endl;
 			output.close();
-			file.close();
 			return -1;
 			}
 
 			output.close();
-		}
-
-		file.close();
+		};
 	}
 	else
 	{
@@ -657,7 +829,7 @@ int interpretCommandLineArgs(int argc, char** args)
 	{
 		std::cout << "Please specify a command\n" <<
 			"<run|compile>:\n" <<
-			"\tcompile <ddls|wb1> <wb1|tm> <inputFile> -optimizationLevel(-Ox)\n" <<
+			"\tcompile <ddls|wb1> <wb1|tm> <inputPath> -optimizationLevel(-Ox)\n" <<
 			"\trun <inputFile> <inputTape> -stepLimit(-#) -showTape(-S)" << std::endl;
 		return -1;
 	}

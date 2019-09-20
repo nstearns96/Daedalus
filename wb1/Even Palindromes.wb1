@@ -1,25 +1,32 @@
 WB1
 b 0 1
-2 1 3
-2 2 10
-0
-3 0
-5 r
-2 1 4
-2 2 4
-5 l
-2 1 17
-1
-3 0
-5 r
-2 1 11
-2 2 11
-5 l
-2 2 17
-1
-3 0
-5 l
-2 1 18
-2 2 18
-5 r
-4 0
+start:
+	if 0 goto found_zero
+	if 1 goto found_one
+	accept
+	found_zero:
+		write b
+		zero_loop:
+			move r
+			if 0 goto zero_loop
+			if 1 goto zero_loop
+		move l
+		if 0 goto next
+		reject
+	found_one:
+		write b
+		one_loop:
+			move r
+			if 0 goto one_loop
+			if 1 goto one_loop
+		move l
+		if 1 goto next
+		reject
+	next:
+		write b
+		find_b:
+			move l
+			if 0 goto find_b
+			if 1 goto find_b
+		move r
+		goto start
