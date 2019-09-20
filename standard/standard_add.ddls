@@ -1,0 +1,22 @@
+0 1
+call_standard_add:
+	if 1 goto found_num
+	move r
+	goto call_standard_add
+	found_num:
+		move r
+		if 0 goto concat
+		goto found_num
+		concat:
+			write 1
+			move r
+			if 1 goto seek_end
+			reject
+			seek_end:
+				move r
+				if 0 goto zero_end
+				goto seek_end
+				zero_end:
+					move l
+					write 0
+					goto return_standard_add

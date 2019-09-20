@@ -1,0 +1,21 @@
+0 1
+call_main:
+	write 1
+	move r
+	write 1
+	move r
+	write 1 
+	move r
+	move r
+	write 1
+	move r
+	write 1
+	move l
+	move l
+	move l
+	move l
+	move l
+	move l
+	goto call_standard_multiply
+	return_standard_multiply:
+	accept
