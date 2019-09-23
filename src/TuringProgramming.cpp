@@ -312,7 +312,7 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 					}
 				}
 
-				for(int l = 1; l < loadedFile.size(); ++l)
+				for(int l = 2; l < loadedFile.size(); ++l)
 				{
 					std::istringstream lineStream(loadedFile[l]);
 					std::vector<std::string> args(std::istream_iterator<std::string>{lineStream}, std::istream_iterator<std::string>());
@@ -335,7 +335,7 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 							}
 							else
 							{
-								std::cout << "Invalid label reference at " << std::to_string(l) << std::endl;
+								std::cout << "Invalid label reference at: " << std::to_string(l) << std::endl;
 								output.close();
 								return -1;
 							}
@@ -356,6 +356,12 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 						else if (args[0] == "move") //move
 						{
 							loadedFile[l] = "5 " + args[1] + "\n";
+						}
+						else
+						{
+							std::cout << "Invalid keyword at: " << std::to_string(l) << std::endl;
+							output.close();
+							return -1;
 						}
 					}
 				}
