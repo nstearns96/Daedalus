@@ -47,7 +47,7 @@ bool validOptimization(const std::vector<Instruction> &ins, std::string arg)
 			}
 			else
 			{
-				for (int i = 0; i < ins.size(); ++i)
+				for (size_t i = 0; i < ins.size(); ++i)
 				{
 					if (ins[i].getCode() == std::stoi(arg))
 					{
@@ -82,15 +82,20 @@ bool validOptimization(const std::vector<Instruction> &ins, std::string arg)
 			}
 			break;
 		}
+		default:
+		{
+			return false;
+			break;
+		}
 	}
 }
 
 Table createOptimizedStates(const OptimizationTemplate& temp, const std::vector<char> &alphabet, unsigned int numStates)
 {
 	Table result = { 0, {},{},{} };
-	result.numStates = 2 + (temp.moveParam == OptimizationParameter::OP_MOVE_ARG ? -1 : 0) + (temp.ifGotoParam == OptimizationParameter::OP_IF_GOTO_ARG ? temp.alphabetSplit.size() : 0);
+	result.numStates = 2 + (temp.moveParam == OptimizationParameter::OP_MOVE_ARG ? -1 : 0) + (temp.ifGotoParam == OptimizationParameter::OP_IF_GOTO_ARG ? (unsigned int) temp.alphabetSplit.size() : 0);
 	int numStatesMade = (temp.moveParam == OptimizationParameter::OP_MOVE_ARG ? 0 : 1);
-	for (int c = 0; c < alphabet.size(); ++c)
+	for (size_t c = 0; c < alphabet.size(); ++c)
 	{
 		if (std::find(temp.alphabetSplit.begin(), temp.alphabetSplit.end(), alphabet[c]) == temp.alphabetSplit.end())
 		{
@@ -140,7 +145,7 @@ Table createOptimizedStates(const OptimizationTemplate& temp, const std::vector<
 
 	if (temp.moveParam == OptimizationParameter::OP_MOVE_NONE)
 	{
-		for (int c = 0; c < alphabet.size(); ++c)
+		for (size_t c = 0; c < alphabet.size(); ++c)
 		{
 			result.write.push_back(alphabet[c]);
 			result.move.push_back('l');
@@ -165,9 +170,9 @@ Table createOptimizedStates(const OptimizationTemplate& temp, const std::vector<
 
 	if (temp.ifGotoParam == OptimizationParameter::OP_IF_GOTO_ARG)
 	{
-		for (int s = 0; s < temp.alphabetSplit.size(); ++s)
+		for (size_t s = 0; s < temp.alphabetSplit.size(); ++s)
 		{
-			for (int c = 0; c < alphabet.size(); ++c)
+			for (size_t c = 0; c < alphabet.size(); ++c)
 			{
 				result.write.push_back(alphabet[c]);
 				result.move.push_back('l');
@@ -188,7 +193,7 @@ Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<
 		OptimizationTemplate temp = { OptimizationParameter::OP_IF_GOTO_NONE, {}, {}, OptimizationParameter::OP_WRITE_NONE, 0, 
 			OptimizationParameter::OP_MOVE_NONE, 'r', OptimizationParameter::OP_GOTO_NONE, 0};
 
-		for (int i = 0; i < ins.size(); ++i)
+		for (size_t i = 0; i < ins.size(); ++i)
 		{
 			switch (ins[i].getCode())
 			{
@@ -205,14 +210,14 @@ Table getOptimizedStates(const std::vector<Instruction> &ins, const std::vector<
 				case opIfGoto:
 				{
 					temp.ifGotoParam = OptimizationParameter::OP_IF_GOTO_ARG;
-					temp.alphabetSplit.push_back(alphabet[std::stoi(ins[i].getArgs()[0])]);
+					temp.alphabetSplit.push_back(alphabet[(size_t)std::stoi(ins[i].getArgs()[0])]);
 					temp.ifGotoArgs.push_back(std::stoi(ins[i].getArgs()[1]));
 					break;
 				}
 				case opWrite:
 				{
 					temp.writeParam = OptimizationParameter::OP_WRITE_ARG;
-					temp.writeArg = alphabet[std::stoi(ins[i].getArgs()[0])];
+					temp.writeArg = alphabet[(size_t)std::stoi(ins[i].getArgs()[0])];
 					break;
 				}
 				case opMove:
@@ -247,9 +252,8 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 		completedStates.push_back(currentState);
 		stateQueue.erase(stateQueue.begin());
 
-		for (int currentChar = 0; currentChar < alphabet.size(); ++currentChar)
+		for (size_t currentChar = 0; currentChar < alphabet.size(); ++currentChar)
 		{
-			bool isCurrentStateIdenticalWrite = (table.write[alphabet.size()*currentState + currentChar] == alphabet[currentChar]);
 			if ((table.nextState[alphabet.size()*currentState + currentChar] != "r") && 
 				(table.nextState[alphabet.size()*currentState + currentChar] != "a"))
 			{
@@ -261,7 +265,7 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 				bool isNextStateSame = true;
 
 				std::string nextStateNextState = table.nextState[alphabet.size() * nextState];
-				for (int nextStateChar = 0; nextStateChar < alphabet.size(); ++nextStateChar)
+				for (size_t nextStateChar = 0; nextStateChar < alphabet.size(); ++nextStateChar)
 				{
 					if (table.write[alphabet.size()*nextState + nextStateChar] != alphabet[nextStateChar])
 					{
@@ -289,7 +293,7 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 					else// if(isCurrentStateIdenticalWrite)
 					{
 						bool madeChange = false;
-						int stateWriteAlphabetOffset = std::find(alphabet.begin(), alphabet.end(), table.write[alphabet.size()*currentState + currentChar]) - alphabet.begin();
+						int stateWriteAlphabetOffset = (int)(std::find(alphabet.begin(), alphabet.end(), table.write[alphabet.size()*currentState + currentChar]) - alphabet.begin());
 						if (table.write[alphabet.size()*currentState + currentChar] != table.write[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset] ||
 							table.move[alphabet.size()*currentState + currentChar] != table.move[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset] ||
 							table.nextState[alphabet.size()*currentState + currentChar] != table.nextState[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset])
@@ -301,7 +305,7 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 						table.nextState[alphabet.size()*currentState + currentChar] = table.nextState[alphabet.size()*std::stoi(nextStateNextState) + stateWriteAlphabetOffset];
 						if (madeChange)
 						{
-							currentChar = -1;
+							currentChar = (size_t)-1;
 							continue;
 						}
 					}
@@ -320,12 +324,12 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 
 	//condense repeated states
 	std::vector<std::set<int>> identicalStates;
-	for (int s = 0; s < table.numStates; ++s)
+	for (size_t s = 0; s < table.numStates; ++s)
 	{
-		for (int n = s + 1; n < table.numStates; ++n)
+		for (size_t n = s + 1; n < table.numStates; ++n)
 		{
 			bool areStatesSame = true;
-			for (int c = 0; c < alphabet.size(); ++c)
+			for (size_t c = 0; c < alphabet.size(); ++c)
 			{
 				if (table.write[alphabet.size()*s + c] != table.write[alphabet.size()*n + c] ||
 					table.move[alphabet.size()*s + c] != table.move[alphabet.size()*n + c] ||
@@ -339,29 +343,29 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 			if (areStatesSame)
 			{
 				bool isStateEmplaced = false;
-				for (int v = 0; v < identicalStates.size(); ++v)
+				for (size_t v = 0; v < identicalStates.size(); ++v)
 				{
 					if (std::find(identicalStates[v].begin(), identicalStates[v].end(), s) != identicalStates[v].end())
 					{
-						identicalStates[v].insert(n);
+						identicalStates[v].insert((int)n);
 						isStateEmplaced = true;
 						break;
 					}
 				}
 				if (!isStateEmplaced)
 				{
-					identicalStates.push_back(std::set<int>{{s,n}});
+					identicalStates.push_back(std::set<int>{{(int)s,(int)n}});
 				}
 			}
 		}
 	}
 
 	//Change references to identical state with the lowest state number
-	for (int next = 0; next < table.nextState.size(); ++next)
+	for (size_t next = 0; next < table.nextState.size(); ++next)
 	{
 		if (table.nextState[next] != "r" && table.nextState[next] != "a")
 		{
-			for (int v = 0; v < identicalStates.size(); ++v)
+			for (size_t v = 0; v < identicalStates.size(); ++v)
 			{
 				if (identicalStates[v].find(std::stoi(table.nextState[next])) != identicalStates[v].end())
 				{
@@ -372,38 +376,38 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 	}
 
 	//Eliminate all unreferenced states
-	std::set<int> referencedStates;
-	std::set<int> removedStates;
-	std::vector<int> stateMapping;
-	for (int s = 0; s < table.numStates; ++s)
+	std::set<unsigned int> referencedStates;
+	std::set<unsigned int> removedStates;
+	std::vector<unsigned int> stateMapping;
+	for (unsigned int s = 0; s < table.numStates; ++s)
 	{
 		stateMapping.push_back(s);
 	}
-	int currentNumStates = table.numStates;
+	unsigned int currentNumStates = table.numStates;
 	bool areAllStatesReferenced = false;
 	while (!areAllStatesReferenced)
 	{
 		referencedStates.insert(0);
 		areAllStatesReferenced = true;
-		for (int next = 0; next < table.nextState.size(); ++next)
+		for (size_t next = 0; next < table.nextState.size(); ++next)
 		{
 			if (table.nextState[next] != "r" && 
 				table.nextState[next] != "a")
 			{
-				referencedStates.insert(std::stoi(table.nextState[next]));
+				referencedStates.insert((unsigned int)std::stoi(table.nextState[next]));
 			}
 		}
-		for (int s = 1; s < currentNumStates; ++s)
+		for (unsigned int s = 1; s < currentNumStates; ++s)
 		{
 			if (referencedStates.find(s) == referencedStates.end() && (removedStates.find(s) == removedStates.end()))
 			{
 				areAllStatesReferenced = false;
-				int mappedState = std::find(stateMapping.begin(), stateMapping.end(), s) - stateMapping.begin();
-				for (int c = 0; c < alphabet.size(); ++c)
+				unsigned int mappedState = (unsigned int)(std::find(stateMapping.begin(), stateMapping.end(), s) - stateMapping.begin());
+				for (size_t c = 0; c < alphabet.size(); ++c)
 				{
-					table.write.erase(table.write.begin() + alphabet.size()*(mappedState));
-					table.move.erase(table.move.begin() + alphabet.size()*(mappedState));
-					table.nextState.erase(table.nextState.begin() + alphabet.size()*(mappedState));
+					table.write.erase(table.write.begin() + (signed)(alphabet.size()*mappedState));
+					table.move.erase(table.move.begin() + (signed)(alphabet.size()*mappedState));
+					table.nextState.erase(table.nextState.begin() + (signed)alphabet.size()*(mappedState));
 				}
 				removedStates.insert(s);
 				--table.numStates;
@@ -414,7 +418,7 @@ void lookAheadOptimize(Table &table, const std::vector<char> &alphabet)
 	}
 
 	//Remap states
-	for (int next = 0; next < table.nextState.size(); ++next)
+	for (size_t next = 0; next < table.nextState.size(); ++next)
 	{
 		if (table.nextState[next] != "r" && table.nextState[next] != "a")
 		{

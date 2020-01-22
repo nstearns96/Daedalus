@@ -36,7 +36,7 @@ struct TuringMachine
 
 	int loadTape(std::string filePath);
 
-	void run(bool isStepLimited, int stepLimit, bool isTapeShown);
+	void run(bool isStepLimited, unsigned int stepLimit, bool isTapeShown);
 
 	void printTape();
 };

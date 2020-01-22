@@ -4,7 +4,7 @@
 
 bool isNum(std::string s)
 {
-	for (int c = 0; c < s.length(); ++c)
+	for (size_t c = 0; c < s.length(); ++c)
 	{
 		if (s[c] != '0' && s[c] != '1' && s[c] != '2' && s[c] != '3' && s[c] != '4' &&
 			s[c] != '5' &&  s[c] != '6' && s[c] != '7' && s[c] != '8' && s[c] != '9')
@@ -17,7 +17,8 @@ bool isNum(std::string s)
 
 void TuringMachine::step()
 {
-	int TableOffset = alphabet.size() * stoi(head.state) + (std::find(alphabet.begin(), alphabet.end(), tape[head.position]) - alphabet.begin());
+	int TableOffset = alphabet.size() * stoi(head.state) +
+		(std::find(alphabet.begin(), alphabet.end(), tape[head.position]) - alphabet.begin());
 	tape[head.position] = table.write[TableOffset];
 	head.position += (table.move[TableOffset] == 'r') ? 1 : -1;
 	head.state = table.nextState[TableOffset];
@@ -51,7 +52,7 @@ int TuringMachine::load(std::string filePath)
 			//Read in alphabet
 			getline(file, line);
 			blankSymbol = line[0];
-			for (int i = 0; i < line.length(); i += 2)
+			for (size_t i = 0; i < line.length(); i += 2)
 			{
 				alphabet.push_back(line[i]);
 			}
@@ -62,7 +63,7 @@ int TuringMachine::load(std::string filePath)
 
 			//Get Table
 			getline(file, line);
-			for (int i = 0; i < 2 * table.numStates * alphabet.size(); i += 2)
+			for (size_t i = 0; i < 2 * table.numStates * alphabet.size(); i += 2)
 			{
 				if (std::find(alphabet.begin(), alphabet.end(), line[i]) != alphabet.end())
 				{
@@ -77,7 +78,7 @@ int TuringMachine::load(std::string filePath)
 			}
 
 			getline(file, line);
-			for (int i = 0; i < 2 * table.numStates * alphabet.size(); i += 2)
+			for (size_t i = 0; i < 2 * table.numStates * alphabet.size(); i += 2)
 			{
 				if (line[i] == 'r' || line[i] == 'l')
 				{
@@ -91,7 +92,7 @@ int TuringMachine::load(std::string filePath)
 				}
 			}
 
-			for (int i = 0; i < table.numStates * alphabet.size(); ++i)
+			for (size_t i = 0; i < table.numStates * alphabet.size(); ++i)
 			{
 				getline(file, line, ' ');
 				if (line == "a" || line == "r")
@@ -100,7 +101,7 @@ int TuringMachine::load(std::string filePath)
 				}
 				else
 				{
-					if (isNum(line) && 0 <= stoi(line) && stoi(line) <= table.numStates)
+					if (isNum(line) && 0U <= stoi(line) && (unsigned int)stoi(line) <= table.numStates)
 					{
 						table.nextState.push_back(line);
 					}
@@ -142,7 +143,7 @@ int TuringMachine::loadTape(std::string filePath)
 	if (fin)
 	{
 		std::getline(fin, line);
-		for (int c = 0; c < line.size(); c += 2)
+		for (size_t c = 0; c < line.size(); c += 2)
 		{
 			tape.push_back(line[c]);
 		}
@@ -156,7 +157,7 @@ int TuringMachine::loadTape(std::string filePath)
 	}
 }
 
-void TuringMachine::run(bool isStepsLimited, int stepLimit, bool isTapeShown)
+void TuringMachine::run(bool isStepsLimited, unsigned int stepLimit, bool isTapeShown)
 {
 	if (isStepsLimited)
 	{
@@ -187,14 +188,14 @@ void TuringMachine::run(bool isStepsLimited, int stepLimit, bool isTapeShown)
 void TuringMachine::printTape()
 {
 	std::string tapeString = "";
-	for (int s = 0; s < tape.size(); ++s)
+	for (size_t s = 0; s < tape.size(); ++s)
 	{
-		tapeString += (std::string{ tape[s] } + " "); 
+		tapeString += (std::string{ tape[s] }); 
 	}
 	std::string headString = "";
 	for (int s = 0; s < head.position; ++s)
 	{
-		headString += "  ";
+		headString += " ";
 	}
 	headString += "^";
 

@@ -26,7 +26,7 @@ std::map<std::string, std::ifstream> loadDirectoryToMap(std::string filePath)
 	return result;
 }
 
-//Converts input file to .wb1
+//Converts input files to .wb1
 int lexWB1(std::string filePath)
 {	
 	std::map<std::string, std::ifstream> directoryMap = loadDirectoryToMap(filePath);
@@ -105,7 +105,8 @@ int lexWB1(std::string filePath)
 				if (!standardFilesOpened[f]->second)
 				{
 					areStandardFilesOpened = false;
-					break;
+					std::cout << "Failed to open standard library file: " + standardFileRefs[f] + ".ddls" << std::endl;
+					return;
 				}
 				else
 				{
@@ -113,82 +114,78 @@ int lexWB1(std::string filePath)
 				}
 			}
 
-			if (areStandardFilesOpened)
+			bool isValidAlphabet = true;
+
+			std::string alphabetString;
+			std::string invalidAlphabetFile;
+			for (std::map<std::string, std::string>::iterator iter = lineIters.begin(); iter != lineIters.end(); ++iter)
 			{
-
-				bool isValidAlphabet = true;
-
-				std::string alphabetString;
-				std::string invalidAlphabetFile;
-				for (std::map<std::string, std::string>::iterator iter = lineIters.begin(); iter != lineIters.end(); ++iter)
+				getline(directoryMap[iter->first], iter->second);
+				if (iter == lineIters.begin())
 				{
-					getline(directoryMap[iter->first], iter->second);
-					if (iter == lineIters.begin())
-					{
-						alphabetString = iter->second;
-					}
-					else
-					{
-						if (alphabetString != iter->second)
-						{
-							isValidAlphabet = false;
-							invalidAlphabetFile = iter->first;
-							break;
-						}
-					}
-				}
-
-				if (isValidAlphabet)
-				{
-
-					std::ofstream outputFile;
-					std::string outputFilePath = "wb1/" + filePath + ".wb1";
-
-					outputFile.open(outputFilePath);
-					if (outputFile)
-					{
-						//Write WB1 header
-						outputFile << "WB1\n";
-
-						//Read in alphabet
-						std::vector<char> alphabet;
-						for (int i = 0; i < alphabetString.size(); i += 2)
-						{
-							alphabet.push_back(alphabetString[i]);
-						}
-
-						//Write alphabet
-						outputFile << alphabetString + '\n';
-
-						//Copy main file over
-						while (getline(mainFile->second, lineIters[mainFile->first]))
-						{
-							outputFile << lineIters[mainFile->first] + "\n";
-						}
-
-						for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
-						{
-							if (iter != mainFile)
-							{
-								while (getline(iter->second, lineIters[iter->first]))
-								{
-									outputFile << lineIters[iter->first] + "\n";
-								}
-							}
-						}
-
-						outputFile.close();
-					}
+					alphabetString = iter->second;
 				}
 				else
 				{
+					if (alphabetString != iter->second)
+					{
+						isValidAlphabet = false;
+						invalidAlphabetFile = iter->first;
+						break;
+					}
+				}
+			}
+
+			if (isValidAlphabet)
+			{
+
+				std::ofstream outputFile;
+				std::string outputFilePath = "wb1/" + filePath + ".wb1";
+
+				outputFile.open(outputFilePath);
+				if (outputFile)
+				{
+					//Write WB1 header
+					outputFile << "WB1\n";
+
+					//Read in alphabet
+					std::vector<char> alphabet;
+					for (int i = 0; i < alphabetString.size(); i += 2)
+					{
+						alphabet.push_back(alphabetString[i]);
+					}
+
+					//Write alphabet
+					outputFile << alphabetString + '\n';
+
+					//Copy main file over
+					while (getline(mainFile->second, lineIters[mainFile->first]))
+					{
+						outputFile << lineIters[mainFile->first] + "\n";
+					}
+
 					for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
 					{
-						iter->second.close();
+						if (iter != mainFile)
+						{
+							while (getline(iter->second, lineIters[iter->first]))
+							{
+								outputFile << lineIters[iter->first] + "\n";
+							}
+						}
 					}
-					std::cout << "Error: Invalid alphabet in file " << invalidAlphabetFile << std::endl;
-					return -1;
+
+					outputFile.close();
 				}
+			}
+			else
+			{
+				for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
+				{
+					iter->second.close();
+				}
+				std::cout << "Error: Invalid alphabet in file " << invalidAlphabetFile << std::endl;
+				return -1;
 			}
 		}
 		for (std::map<std::string, std::ifstream>::iterator iter = directoryMap.begin(); iter != directoryMap.end(); ++iter)
@@ -283,14 +280,14 @@ int wb1toTM(std::string filePath, int optimizationLevel)
 								}
 								else
 								{
-									std::cout << "Repeated label: " << label << " at " << l << " and " << labelMap[label];
+									std::cout << "Repeated label: " << label << " at lines " << l << " and " << labelMap[label] + labelMap.size() + 1 << std::endl;
 									output.close();
 									return -1;
 								}
 							}
 							else
 							{
-								std::cout << "Invalid label at " << std::to_string(l + labelMap.size()) << std::endl;
+								std::cout << "Invalid label at line " << l << std::endl;
 								output.close();
 								return -1;
 							}
@@ -846,26 +843,6 @@ int interpretCommandLineArgs(int argc, char** args)
 int main(int argc, char** args)
 {
 	interpretCommandLineArgs(argc, args);
-/*
-	std::string filePath{ args[1] };
-
-	if (lexWB1(filePath) == 0)
-	{
-		if (wb1toTM(filePath, 2) == 0)
-		{
-			if (machine.load(filePath) == 0)
-			{
-				if (machine.loadTape("initTape") == 0)
-				{
-					while (machine.head.state != "r" && machine.head.state != "a")
-					{
-						machine.step();
-					}
-					std::cout << ((machine.head.state == "r") ? "Rejected" : "Accepted") << std::endl;
-				}
-			}
-		}
-	}*/
 
 	return 0;
 }
